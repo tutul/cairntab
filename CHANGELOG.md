@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The default root folder is now called `CairnTab` (was `Pin`). Existing setups that saved a folder
+  name keep it; otherwise the new welcome screen finds the old folder and offers to keep using it.
+- Welcome screen when the root folder is missing: what will be created, a create button, and any
+  existing folder that already looks like one.
 - Clicking the toolbar icon opens a new tab (CairnTab); its right-click menu has a link to the
   project on GitHub. Adds the `contextMenus` permission.
 - Inbox order setting: closest to archiving first (default), newest first, or manual with

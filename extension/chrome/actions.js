@@ -2,7 +2,7 @@
 // change, because the user may have edited bookmarks since the page rendered.
 
 import { dueItems } from "../lib/archive.js";
-import { allIds, buildModel, flatten, normTitle } from "../lib/model.js";
+import { allIds, buildModel, findCandidateRoots, flatten, normTitle } from "../lib/model.js";
 import { colorFor, describeTabs, findOpenTab, findTaskGroup, planGroup } from "../lib/tabs.js";
 import { isOpenable, sameUrl } from "../lib/url.js";
 import { createStore } from "./store.js";
@@ -61,7 +61,7 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
     return false;
   }
 
-  /** Id of a role folder, creating it (and the Pin root) if missing. */
+  /** Id of a role folder, creating it (and the root folder) if missing. */
   async function ensureRole(role, model, settings) {
     const known = model.folders[role];
     if (known) {
@@ -218,7 +218,9 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
       model.archiveOpen = !!meta.collapsed.archive;
       // Whole tree for the bookmark drawer: bookmarks bar, other bookmarks, mobile.
       const bookmarkRoots = (tree[0]?.children ?? []).filter((n) => !n.url);
-      return { model, settings: meta.settings, openTabs, untracked, bookmarkRoots, windowId: win.id, movedToArchive, now: now() };
+      // No root yet: offer folders that already look like one (welcome screen, D-029).
+      const candidates = model.root ? [] : findCandidateRoots(tree, { exclude: meta.settings.rootTitle });
+      return { model, settings: meta.settings, openTabs, untracked, bookmarkRoots, windowId: win.id, movedToArchive, candidates, now: now() };
     },
 
     /**
@@ -435,7 +437,7 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
 
     /**
      * Make an existing bookmark folder a task by moving it under Groups (bookmark drawer → ＋ 新任務).
-     * Refuses the browser's top-level folders, the Pin root, its role folders, and any folder that
+     * Refuses the browser's top-level folders, the root folder, its role folders, and any folder that
      * contains Groups — moving those would tear the structure apart.
      */
     async adoptFolder(folderId) {
@@ -457,7 +459,7 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
       return this.moveItem(itemId, { role: "inbox" });
     },
 
-    /** chrome://bookmarks opened at the Pin folder (or the whole tree when there is none). */
+    /** chrome://bookmarks opened at the root folder (or the whole tree when there is none). */
     async openBookmarkManager({ selfTabId = null } = {}) {
       const { model } = await readModel();
       const url = model.root ? `chrome://bookmarks/?id=${model.root.id}` : "chrome://bookmarks/";
@@ -512,7 +514,7 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
       if (node.parentId !== archiveId) await chrome.bookmarks.move(itemId, { parentId: archiveId });
     },
 
-    /** Create the Pin root and any missing role folder. Leaves everything else alone. */
+    /** Create the root folder and any missing role folder. Leaves everything else alone. */
     async ensureStructure() {
       const { model, meta } = await readModel();
       for (const role of Object.keys(ROLE_TITLES)) {

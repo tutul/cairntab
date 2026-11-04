@@ -212,3 +212,16 @@ CairnTab, and since CairnTab is the new tab page that is simply `tabs.create({})
 tab. The project link moved to an explicit right-click item, "在 GitHub 查看 CairnTab", which opens
 the repository. Costs the `contextMenus` permission (no install warning). Rejected: a popup — it
 would be a second, smaller UI to maintain for something the new tab page already is.
+
+**D-029 Default root folder "CairnTab"; welcome screen when it is missing.** 2026-11-04. Amends D-009
+(which kept "Pin" as the folder name).
+Now that CairnTab is public, a folder named after the product is easier to recognise in the bookmarks
+bar and in support questions than the generic "Pin". The default `rootTitle` becomes "CairnTab"
+(the "Top Pin" tab group keeps its name: it is about pins, not the folder). A saved setting is never
+changed, so setups that stored "Pin" keep working. For setups that never saved one — and for every
+first run — the old notice was replaced by a welcome screen: what the four folders are for, a primary
+button that creates the root and role folders, "用其他名稱…" which opens settings at the folder name,
+and any folder that already looks like a root under another name (`findCandidateRoots`: at least two
+role-named children) with a one-click "改用" that only sets `rootTitle`. Rejected: silently falling
+back to "Pin" when "CairnTab" is missing — invisible magic, and it would pick up an unrelated folder
+that happens to be called Pin.

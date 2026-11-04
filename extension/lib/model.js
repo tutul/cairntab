@@ -27,7 +27,7 @@ function topLevel(tree) {
   return { root, bar, other };
 }
 
-/** Find the Pin root: bar first, then Other bookmarks, then anywhere in tree order. */
+/** Find the root folder: bar first, then Other bookmarks, then anywhere in tree order. */
 export function findRoot(tree, rootTitle) {
   const want = normTitle(rootTitle);
   const { root, bar, other } = topLevel(tree);
@@ -86,7 +86,7 @@ export function allIds(tree) {
  *   extras: {id,title,isFolder}[], warnings: string[]
  * }}
  */
-export function buildModel(tree, { rootTitle = "Pin" } = {}) {
+export function buildModel(tree, { rootTitle = "CairnTab" } = {}) {
   const { bar } = topLevel(tree);
   const model = {
     root: null,
@@ -142,4 +142,31 @@ export function buildModel(tree, { rootTitle = "Pin" } = {}) {
 /** Every item the page shows, for matching against open tabs. */
 export function allItems(model) {
   return [...model.top, ...model.tasks.flatMap((t) => t.items), ...model.inbox];
+}
+
+/**
+ * Folders that look like a CairnTab root under another name — at least two direct children named
+ * like role folders (Top / Groups / Inbox / Archive). Offered on the welcome screen when the
+ * configured root is missing, e.g. a folder from before the default name changed (D-029).
+ * Bar first, then Other bookmarks, then the rest, in tree order; at most `limit`.
+ */
+export function findCandidateRoots(tree, { exclude = "", limit = 3 } = {}) {
+  const roles = new Set(ROLES);
+  const skip = normTitle(exclude);
+  const { root, bar, other } = topLevel(tree);
+  const out = [];
+  const seen = new Set();
+  const visit = (n, path) => {
+    if (!isFolder(n) || seen.has(n.id)) return;
+    seen.add(n.id);
+    const roleKids = children(n).filter((c) => isFolder(c) && roles.has(normTitle(c.title)));
+    if (n !== root && n.title && normTitle(n.title) !== skip && roleKids.length >= 2) {
+      out.push({ id: n.id, title: n.title, path, roles: roleKids.map((c) => c.title) });
+    }
+    for (const c of children(n)) visit(c, n.title ? [...path, n.title] : path);
+  };
+  for (const start of [bar, other, root].filter(Boolean)) {
+    for (const c of children(start)) visit(c, start === root ? [] : [start.title]);
+  }
+  return out.slice(0, limit);
 }

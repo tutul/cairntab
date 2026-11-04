@@ -33,7 +33,7 @@ const hiddenTab = (t, { selfTabId, extensionOrigin }) => {
 };
 
 /**
- * Every open tab the page lists, each with `place`: where in Pin it already lives (the place of the
+ * Every open tab the page lists, each with `place`: where in the root folder it already lives (the place of the
  * closest item matching at PAGE or better), or null when it is not filed anywhere.
  * `places` is [{ item, place }]. Our own page and browser-internal pages are left out.
  * PAGE, not SITE, on purpose: a front-page pin like github.com marks itself open when any GitHub tab
@@ -56,7 +56,7 @@ export function describeTabs(tabs, places, { selfTabId = null, extensionOrigin =
     });
 }
 
-/** Open tabs not filed anywhere in Pin. */
+/** Open tabs not filed anywhere in the root folder. */
 export function untrackedTabs(tabs, items, opts = {}) {
   return describeTabs(tabs, items.map((item) => ({ item, place: true })), opts).filter((t) => !t.place);
 }

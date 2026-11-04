@@ -1,11 +1,11 @@
-// Bookmark trees with the quirks real profiles have: imported category folders next to the Pin
+// Bookmark trees with the quirks real profiles have: imported category folders next to the root
 // root, Chinese titles, a bookmarklet, nested folders inside a task, a loose URL in Groups, a folder
 // that belongs to no role, and role folders typed in the wrong case. All sites are public examples.
 
 export const NOW = Date.UTC(2026, 10, 4, 4, 0, 0); // 2026-11-04 12:00 UTC+8
 export const DAY = 24 * 60 * 60 * 1000;
 
-export function sampleTree({ archiveFolder = true, inboxFolder = true } = {}) {
+export function sampleTree({ archiveFolder = true, inboxFolder = true, rootTitle = "CairnTab" } = {}) {
   const pinChildren = [
     {
       title: "Top",
@@ -63,7 +63,7 @@ export function sampleTree({ archiveFolder = true, inboxFolder = true } = {}) {
         children: [
           { title: "匯入的收藏", children: [{ title: "Common", children: [{ title: "Figma", url: "https://figma.com/" }] }] },
           { title: "開發", children: [{ title: "MDN", url: "https://developer.mozilla.org/" }] },
-          { title: "Pin", children: pinChildren },
+          { title: rootTitle, children: pinChildren },
         ],
       },
       { title: "Other bookmarks", folderType: "other", children: [] },

@@ -674,18 +674,56 @@ function updateBulkBar(total) {
   all.indeterminate = n > 0 && n < total;
 }
 
-function renderNoRoot(settings) {
-  return el("section", { class: "block notice" },
-    el("p", {}, `書籤裡找不到「${settings.rootTitle}」資料夾。`),
-    el("p", { class: "hint" }, "建立後會放在書籤列，底下有 Top、Groups、Inbox、Archive 四個資料夾；之後直接在書籤管理員裡增減內容即可。"),
-    el("button", { class: "btn", onclick: () => run(() => actions.ensureStructure(), "已建立資料夾") }, "建立 Pin 結構"));
+/**
+ * Welcome screen when the root folder does not exist (D-029): what CairnTab will create, a button to
+ * create it, and — when a folder that already looks like one exists under another name (e.g. one
+ * made before the default changed from "Pin") — a one-click way to use that instead.
+ */
+const ROLE_HELP = [
+  ["Top", "常用網站，最上方的圖示列"],
+  ["Groups", "每個子資料夾是一個任務"],
+  ["Inbox", "之後再看的頁面，到期自動封存"],
+  ["Archive", "完成或到期的項目，不會刪除"],
+];
+
+function renderNoRoot(settings, candidates = []) {
+  const name = settings.rootTitle;
+  const alt = candidates.map((c) => el("div", { class: "welcome-alt" },
+    el("div", { class: "stext" },
+      el("span", { class: "slabel" }, `找到「${c.title}」資料夾`),
+      el("p", { class: "shint" }, `${c.path.length ? `${c.path.join(" › ")} › ` : ""}${c.title}，裡面有 ${c.roles.join("、")}`)),
+    el("button", {
+      class: "btn",
+      onclick: () => run(() => actions.saveSettings({ rootTitle: c.title }), `已改用「${c.title}」資料夾`),
+    }, `改用「${c.title}」`)));
+  return el("section", { class: "block welcome" },
+    el("div", { class: "welcome-card" },
+      el("h2", {}, "歡迎使用 CairnTab"),
+      el("p", { class: "welcome-lead" },
+        `CairnTab 把書籤列上的一個資料夾變成你的任務板。按下按鈕，會在書籤列建立「${name}」資料夾和四個子資料夾：`),
+      el("dl", { class: "welcome-roles" }, ROLE_HELP.flatMap(([t, d]) => [el("dt", {}, t), el("dd", {}, d)])),
+      el("p", { class: "shint" }, "全部都是一般書籤：會跟著 Chrome 同步，也能隨時在書籤管理員裡整理。"),
+      el("div", { class: "welcome-actions" },
+        el("button", {
+          class: "btn primary",
+          onclick: () => run(() => actions.ensureStructure(), `已建立「${name}」資料夾`),
+        }, icon("plus"), `建立「${name}」資料夾`),
+        el("button", {
+          class: "btn ghost",
+          onclick: () => {
+            setSide("settings");
+            setTimeout(() => $("#rootTitle").focus(), 300);
+          },
+        }, "用其他名稱…")),
+      alt.length ? el("div", { class: "welcome-alts" },
+        el("p", { class: "shint" }, "已經有用過的資料夾？"), alt) : null));
 }
 
 const ROLE_LABELS = { top: "Top", groups: "Groups", inbox: "Inbox", archive: "Archive" };
 
 /**
  * The root exists but some role folders do not. Without this the page showed only "other tabs"
- * and looked broken (seen 2026-11-04 with an existing "Pin" folder), and the create
+ * and looked broken (seen 2026-11-04 with an existing root folder), and the create
  * button was hidden inside settings.
  */
 function renderMissingRoles(model) {
@@ -1012,7 +1050,7 @@ function render() {
   const app = $("#app");
   const parts = model.root
     ? [renderMissingRoles(model), renderTop(model), renderTasks(model, now), renderInbox(model, settings, now)]
-    : [renderNoRoot(settings)];
+    : [renderNoRoot(settings, state.candidates)];
   if (model.warnings.length) parts.push(el("p", { class: "warnings" }, model.warnings.join("；")));
   app.replaceChildren(...parts.filter(Boolean));
   $("#tabsCount").textContent = String(openTabs.length);

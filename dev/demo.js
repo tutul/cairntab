@@ -18,7 +18,7 @@ export function demoTree(now = Date.now()) {
             { title: "MDN Web Docs", url: "https://developer.mozilla.org/" },
             { title: "Hacker News", url: "https://news.ycombinator.com/" },
           ] },
-          { title: "Pin", children: [
+          { title: "CairnTab", children: [
             { title: "Top", children: [
               { title: "GitHub", url: "https://github.com/" },
               { title: "Calendar", url: "https://calendar.google.com/" },

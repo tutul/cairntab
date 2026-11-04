@@ -8,7 +8,7 @@ Read `docs/brief.md` (what and why), `docs/conventions.md` (rules), `docs/archit
 
 Breaking any of these makes the extension worse than not having it:
 
-1. **Never delete a bookmark.** Archive = move into `Pin/Archive`. The user's bookmarks are the
+1. **Never delete a bookmark.** Archive = move into `CairnTab/Archive`. The user's bookmarks are the
    only copy of their tasks.
 2. **Tabs never write bookmarks.** Data flows bookmarks → tabs. Closing a tab or group must not
    change the bookmark tree.
@@ -24,7 +24,7 @@ Breaking any of these makes the extension worse than not having it:
 |---|---|
 | `make ci` | syntax + manifest + purity checks, then all tests. Run before every commit. |
 | `make test` | `node:test` suite only |
-| `make preview` | serves the repo with caching off; open `http://127.0.0.1:8770/dev/preview.html` (real page, fake Chrome; `?demo` = public demo data, `?bare` = Pin folder without role folders) |
+| `make preview` | serves the repo with caching off; open `http://127.0.0.1:8770/dev/preview.html` (real page, fake Chrome; `?demo` = public demo data, `?bare` = root folder without role folders, `?legacy` / `?empty` = welcome screen) |
 | `make package` | zip `extension/` into `dist/` |
 | `make icons` | re-render `extension/icons/*.png` from `assets/*.svg` (needs `rsvg-convert`) |
 | `make screenshots` | re-render `docs/screenshots/` from `dev/demo.js` (needs `make preview` running and Chrome) |
@@ -52,7 +52,7 @@ Load in Chrome: `chrome://extensions` → Developer mode → Load unpacked → `
 
 ## Current state (2026-11-04)
 
-- v0.1.0, public, load-unpacked only; UI in Traditional Chinese. 87 tests (`make ci`); every UI
+- v0.1.0, public, load-unpacked only; UI in Traditional Chinese. 90 tests (`make ci`); every UI
   change is also checked in `dev/preview.html`.
 - Verified in real Chrome: tab groups (tasks, Top Pin), favicons, drag and drop, drawers. Not
   formally tested: recovering task groups by title after a Chrome restart.
@@ -60,9 +60,9 @@ Load in Chrome: `chrome://extensions` → Developer mode → Load unpacked → `
   / all, 收起), Inbox with configurable archive days and Archive view, bookmark drawer (left), open-tabs
   drawer (right, closed by default) with multi-select, settings in the right drawer, click behaviour
   (switch / stay, keep CairnTab), B/T/R/S/Esc keys, appearance settings (D-022). Design history:
-  `docs/decisions.md` D-001…D-028.
+  `docs/decisions.md` D-001…D-029.
 - Not built yet: per-task "review every N days" reminders, English UI/i18n, a Chrome Web Store
-  listing. Not possible: Android (Chrome Android has no extensions; the Pin folder syncs anyway).
+  listing. Not possible: Android (Chrome Android has no extensions; the CairnTab folder syncs anyway).
 - Apache-2.0; `NOTICE` credits the author and must ship with copies (D-026). Fixtures, demo data
   (`dev/demo.js`) and screenshots use public sites and made-up titles only; never put real profile
   data in the repo (CONTRIBUTING.md).

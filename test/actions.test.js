@@ -301,9 +301,9 @@ test("archiveItem moves, never deletes", async () => {
 
 // ---------- structure & metadata ----------
 
-test("load tolerates the whole Pin root being deleted", async () => {
+test("load tolerates the whole root folder being deleted", async () => {
   const { chrome, actions, id } = setup();
-  await chrome.bookmarks.removeTree(id("Pin"));
+  await chrome.bookmarks.removeTree(id("CairnTab"));
   const view = await actions.load({ selfTabId: 1 });
   assert.equal(view.model.root, null);
 });
@@ -312,7 +312,7 @@ test("ensureStructure creates only what is missing and is idempotent", async () 
   const { chrome, actions } = setup({ tree: sampleTree({ archiveFolder: false }) });
   await actions.ensureStructure();
   await actions.ensureStructure();
-  const pin = chrome._findBookmark("Pin");
+  const pin = chrome._findBookmark("CairnTab");
   const titles = pin.childIds.map((c) => chrome._nodes.get(c).title);
   assert.deepEqual(titles, ["Top", "Groups", "inbox", "舊東西", "Archive"]);
 });
@@ -320,7 +320,7 @@ test("ensureStructure creates only what is missing and is idempotent", async () 
 test("ensureStructure builds everything from nothing", async () => {
   const { chrome, actions } = setup({ tree: null });
   await actions.ensureStructure();
-  const pin = chrome._findBookmark("Pin");
+  const pin = chrome._findBookmark("CairnTab");
   assert.deepEqual(pin.childIds.map((c) => chrome._nodes.get(c).title), ["Top", "Groups", "Inbox", "Archive"]);
 });
 
@@ -389,10 +389,10 @@ test("load lists Archive newest first", async () => {
   assert.deepEqual(view.model.archive.map((i) => i.title), ["Fresh", "Old article"]);
 });
 
-test("openBookmarkManager opens chrome://bookmarks at the Pin folder", async () => {
+test("openBookmarkManager opens chrome://bookmarks at the root folder", async () => {
   const { chrome, actions, id, selfTabId } = setup();
   await actions.openBookmarkManager({ selfTabId });
-  assert.equal(chrome._tabs.get(selfTabId).url, `chrome://bookmarks/?id=${id("Pin")}`);
+  assert.equal(chrome._tabs.get(selfTabId).url, `chrome://bookmarks/?id=${id("CairnTab")}`);
 });
 
 // ---------- reorder & drawer ----------
@@ -445,7 +445,7 @@ test("adoptFolder turns an existing folder into a task", async () => {
 
 test("adoptFolder refuses folders that hold the structure together", async () => {
   const { actions, id } = setup();
-  for (const title of ["Pin", "Groups", "Top", "Bookmarks bar"]) {
+  for (const title of ["CairnTab", "Groups", "Top", "Bookmarks bar"]) {
     await assert.rejects(actions.adoptFolder(id(title)), /不能變成任務|Groups/, title);
   }
 });
@@ -558,7 +558,7 @@ test("appearance is stored normalized and merges patches", async () => {
 test("openMode is stored and junk falls back to switch (D-024)", async () => {
   const { actions } = setup();
   assert.equal((await actions.saveSettings({ openMode: "stay" })).openMode, "stay");
-  assert.equal((await actions.saveSettings({ rootTitle: "Pin" })).openMode, "stay", "other saves keep it");
+  assert.equal((await actions.saveSettings({ rootTitle: "CairnTab" })).openMode, "stay", "other saves keep it");
   assert.equal((await actions.saveSettings({ openMode: "nope" })).openMode, "switch");
 });
 
@@ -609,4 +609,27 @@ test("manual Inbox order: placeItem reorders inside Inbox and keeps its age", as
   const again = await actions.load({});
   assert.equal(again.model.inbox[0].id, last.id, "moved to the top of the folder");
   assert.equal(again.model.inbox[0].dateAdded, last.dateAdded, "reordering within Inbox does not reset the countdown");
+});
+
+test("missing root: load offers an older folder, and adopting it is just a rename of the setting (D-029)", async () => {
+  const { actions } = setup({ tree: sampleTree({ rootTitle: "Pin" }) });
+  const view = await actions.load({});
+  assert.equal(view.model.root, null);
+  assert.deepEqual(view.candidates.map((c) => c.title), ["Pin"]);
+  await actions.saveSettings({ rootTitle: "Pin" });
+  const after = await actions.load({});
+  assert.equal(after.model.root.title, "Pin");
+  assert.deepEqual(after.candidates, []);
+});
+
+test("default root folder is called CairnTab and ensureStructure creates it", async () => {
+  const { chrome, actions } = setup({ tree: { id: "0", title: "", children: [
+    { title: "Bookmarks bar", folderType: "bookmarks-bar", children: [] },
+    { title: "Other bookmarks", folderType: "other", children: [] },
+  ] } });
+  assert.equal((await actions.load({})).settings.rootTitle, "CairnTab");
+  await actions.ensureStructure();
+  const view = await actions.load({});
+  assert.equal(view.model.root.title, "CairnTab");
+  assert.ok(chrome._findBookmark("Inbox"));
 });

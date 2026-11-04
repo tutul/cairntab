@@ -11,13 +11,13 @@ the tab strip, and a saved tab group can only be opened all at once. Most long-l
 reminders, not pages being read.
 
 **Scope (v1)**
-- New tab override reading `Pin/` on the bookmarks bar: `Top`, `Groups/<task>`, `Inbox`, `Archive`.
+- New tab override reading `CairnTab/` on the bookmarks bar: `Top`, `Groups/<task>`, `Inbox`, `Archive`.
 - Top: icon row; click focuses the tab if open, opens it otherwise.
 - Groups: each subfolder is a task. Open one page or all; pages land in a native tab group named
   after the task. Closing tabs or the group never touches bookmarks.
 - Inbox: park an open tab (bookmark it, close it). Items older than N days (user setting, 0 = never)
   move to `Archive` automatically.
-- Open tabs that are not in `Pin/` are listed so they can be parked or filed into a task.
+- Open tabs that are not in `CairnTab/` are listed so they can be parked or filed into a task.
 - Metadata (settings, last opened, folder → tab group map) in `chrome.storage.local`. No sync.
 
 **Non-goals**

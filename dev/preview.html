@@ -19,16 +19,18 @@
 
   // Query flags:
   //   ?demo                 public demo data (used for the README screenshots) instead of the test fixture
-  //   ?bare                 a Pin folder without role folders
+  //   ?bare                 a root folder without role folders
+  //   ?legacy               no CairnTab folder, but an older "Pin" folder with role folders (welcome + adopt)
+  //   ?empty                no folders at all (welcome screen)
   //   &theme=dark|light, &accent=<name|#hex>, &bg=plain|tint, &density=compact   preset appearance
   //   &panel=settings|tabs|bookmarks   open that drawer after load
   const q = new URLSearchParams(location.search);
 
-  // ?bare: a "Pin" folder that holds only the user's own items and no role folders yet.
+  // ?bare: a root folder that holds only the user's own items and no role folders yet.
   const bare = {
     id: "0", title: "", children: [
       { title: "Bookmarks bar", folderType: "bookmarks-bar", children: [
-        { title: "Pin", children: [
+        { title: "CairnTab", children: [
           { title: "匯入的收藏", children: [{ title: "Figma", url: "https://figma.com/" }] },
           { title: "ChatGPT", url: "https://chatgpt.com/" },
         ] },
@@ -39,7 +41,11 @@
   globalThis.chrome = q.has("demo") ? createFakeChrome({
     tree: demoTree(), tabs: demoTabs, groups: demoGroups, selfTabId: 1,
   }) : createFakeChrome({
-    tree: q.has("bare") ? bare : sampleTree(),
+    tree: q.has("bare") ? bare : q.has("legacy") ? sampleTree({ rootTitle: "Pin" })
+      : q.has("empty") ? { id: "0", title: "", children: [
+        { title: "Bookmarks bar", folderType: "bookmarks-bar", children: [] },
+        { title: "Other bookmarks", folderType: "other", children: [] },
+      ] } : sampleTree(),
     now: NOW,
     selfTabId: 1,
     tabs: [

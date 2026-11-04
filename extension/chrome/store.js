@@ -11,7 +11,7 @@ import { normalizeAppearance } from "../lib/theme.js";
 // inboxSort: "expiring" (closest to archiving first), "newest" (latest first) or "manual" (bookmark
 // order, drag to reorder) (D-027).
 export const DEFAULT_SETTINGS = Object.freeze({
-  rootTitle: "Pin", archiveDays: 30, openMode: "switch", closeOnSwitch: true, inboxSort: "expiring",
+  rootTitle: "CairnTab", archiveDays: 30, openMode: "switch", closeOnSwitch: true, inboxSort: "expiring",
 });
 const KEYS = ["settings", "lastOpened", "groupMap", "collapsed", "inboxSince", "iconPage"];
 

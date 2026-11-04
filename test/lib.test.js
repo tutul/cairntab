@@ -29,8 +29,8 @@ test("bookmarklets are not openable", () => {
 // ---------- model ----------
 
 test("buildModel reads a realistic layout", async () => {
-  const m = buildModel(await treeOf(sampleTree()), { rootTitle: "Pin" });
-  assert.equal(m.root.title, "Pin");
+  const m = buildModel(await treeOf(sampleTree()), { rootTitle: "CairnTab" });
+  assert.equal(m.root.title, "CairnTab");
   assert.equal(m.top.length, 6);
   assert.equal(m.top[4].title, "https://www.notion.so/", "empty title falls back to URL");
   assert.equal(m.top[5].openable, false);
@@ -58,7 +58,7 @@ test("duplicate role folders: first wins, the rest are reported", async () => {
 test("root under the bookmarks bar wins over one elsewhere", async () => {
   const tree = sampleTree();
   tree.children[1].children.push({ title: "pin", children: [] });
-  const root = findRoot(await treeOf(tree), "Pin");
+  const root = findRoot(await treeOf(tree), "CairnTab");
   assert.equal(root.children.length > 0, true, "the populated bar folder, not the empty one in Other");
 });
 
@@ -170,4 +170,14 @@ test("sortInbox: expiring (oldest first), newest, manual keeps bookmark order (D
   assert.equal(ids(sortInbox(items, "newest")), "acb");
   assert.equal(ids(sortInbox(items, "manual")), "abc");
   assert.equal(ids(items), "abc", "input not mutated");
+});
+
+test("findCandidateRoots offers folders that look like a root under another name (D-029)", async () => {
+  const { findCandidateRoots } = await import("../extension/lib/model.js");
+  const tree = await treeOf(sampleTree({ rootTitle: "Pin" }));
+  const found = findCandidateRoots(tree, { exclude: "CairnTab" });
+  assert.deepEqual(found.map((c) => [c.title, c.path]), [["Pin", ["Bookmarks bar"]]]);
+  assert.ok(found[0].roles.includes("Top") && found[0].roles.includes("Groups"));
+  assert.deepEqual(findCandidateRoots(tree, { exclude: "pin" }), [], "the configured name itself is not a candidate");
+  assert.deepEqual(findCandidateRoots(await treeOf(sampleTree()), { exclude: "CairnTab" }), [], "other ordinary folders are not candidates");
 });

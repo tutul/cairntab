@@ -67,7 +67,7 @@ favicon; task cards carry their tab group's colour.
 
 **書籤** opens a drawer on the left with every bookmark. Drag a bookmark from it onto Top, a task, a
 task's page (to place it there) or Inbox; drag a whole folder onto **＋ 新任務** to make it a task. The
-drawer's **管理員** button opens Chrome's bookmark manager at `Pin` for renaming and deleting.
+drawer's **管理員** button opens Chrome's bookmark manager at the `CairnTab` folder for renaming and deleting.
 
 ### When does a bookmark count as "open"?
 
@@ -92,7 +92,7 @@ Everything lives in a normal bookmarks folder on the bookmarks bar:
 
 ```
 Bookmarks bar
-└─ Pin
+└─ CairnTab
    ├─ Top          pinned sites (icon row)
    ├─ Groups
    │  └─ <task>    one folder per task; subfolders are flattened
@@ -102,10 +102,10 @@ Bookmarks bar
 
 - Rearrange, rename, add or delete anything in Chrome's bookmark manager at any time; the page
   updates live.
-- Folder names are case-insensitive. Anything else inside `Pin` is left alone.
+- Folder names are case-insensitive. Anything else inside the `CairnTab` folder is left alone.
 - Because it is all bookmarks, it syncs across your computers with Chrome Sync, and nothing is lost
   if you uninstall the extension.
-- The root folder name (`Pin`) can be changed in settings.
+- The root folder name (`CairnTab` by default) can be changed in settings.
 
 ## Install
 
@@ -115,9 +115,10 @@ Not on the Chrome Web Store yet.
 2. Open `chrome://extensions` and turn on **Developer mode**.
 3. Click **Load unpacked** and choose the `extension/` folder.
 4. Open a new tab. When Chrome asks whether to keep the changed new tab page, choose **Keep it**.
-5. If there is no `Pin` folder yet, click **建立 Pin 結構** (create structure). If `Pin` exists but
-   lacks some of `Top`/`Groups`/`Inbox`/`Archive`, click **建立缺少的資料夾**; existing items in `Pin`
-   are left where they are.
+5. The first time, a welcome screen explains the folders and offers **建立「CairnTab」資料夾** (create
+   the folder). If you already have a folder with `Top`/`Groups`/`Inbox`/`Archive` under another name,
+   it is listed there with a button to use it instead. If the folder exists but lacks some of them,
+   click **建立缺少的資料夾**; existing items are left where they are.
 
 Requires Chrome 116 or later.
 
@@ -134,7 +135,7 @@ Requires Chrome 116 or later.
   there and move the tab into the task's group), **Inbox** (bookmark it and close the tab), or
   **＋ 新任務** (name a new task and file the tab into it). Bookmarks already on the page can be
   dragged between Top, tasks and Inbox the same way.
-- **Layout**: bookmarks drawer on the left, your Pin folder in the middle, open tabs on the right
+- **Layout**: bookmarks drawer on the left, your CairnTab folder in the middle, open tabs on the right
   (closed by default; open it from the header). Settings take over the right drawer while open.
   Drawers slide over the page, so the middle column never moves; on wide windows they sit in the
   empty margins, on narrow ones only one opens at a time. Drawers remember whether they were open.
@@ -160,7 +161,7 @@ it leaves your browser.
 
 | Permission | Used for |
 |---|---|
-| `bookmarks` | Reading the `Pin` folder, parking tabs into Inbox, moving items to Archive |
+| `bookmarks` | Reading the `CairnTab` folder, parking tabs into Inbox, moving items to Archive |
 | `tabs` | Knowing which pins are already open, switching to them, closing parked tabs |
 | `tabGroups` | Putting a task's pages into a tab group named after the task |
 | `storage` | The small local record above |

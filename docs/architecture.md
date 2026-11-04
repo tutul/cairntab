@@ -4,7 +4,7 @@
 
 ```
 Bookmarks bar
-└─ Pin                      root; title configurable (default "Pin"), matched case-insensitively
+└─ CairnTab                 root; title configurable (default "CairnTab"), matched case-insensitively
    ├─ Top                   icon row. URLs anywhere below are flattened.
    ├─ Groups
    │  ├─ <task>             one task per direct subfolder; URLs below it are flattened
@@ -16,13 +16,16 @@ Bookmarks bar
 Lookup order for the root: a folder with the configured title directly under the bookmarks bar,
 then directly under "Other bookmarks", then anywhere (first by tree order). Role folders are direct
 children of the root, matched case-insensitively. Missing role folders render as empty sections; a
-button creates them.
+button creates them. With no root at all the page shows a welcome screen (D-029): a button that creates
+the root and its role folders, plus `lib/model.findCandidateRoots` — folders under another name that
+have at least two role-named children (e.g. an older `Pin`) — each with a button that just sets
+`settings.rootTitle` to it.
 
 ## Storage (`chrome.storage.local`)
 
 | Key | Shape | Lost means |
 |---|---|---|
-| `settings` | `{ rootTitle, archiveDays, openMode, closeOnSwitch, inboxSort }` | defaults: `"Pin"`, 30, `"switch"`, `true`, `"expiring"` (D-024, D-025, D-027) |
+| `settings` | `{ rootTitle, archiveDays, openMode, closeOnSwitch, inboxSort }` | defaults: `"CairnTab"`, 30, `"switch"`, `true`, `"expiring"` (D-024, D-025, D-027) |
 | `lastOpened` | `{ [bookmarkId]: epochMs }` | "N days ago" shows nothing until reopened |
 | `groupMap` | `{ [taskFolderId]: { groupId, windowId } }` | next open finds the group by title |
 | `collapsed` | `{ [taskFolderId \| "loose"]: true, archive: true }` | cards unfold; for `archive`, `true` means the list is *open* |
@@ -72,7 +75,7 @@ the same so tests catch off-by-one moves.
 
 **Bookmark drawer** renders `load().bookmarkRoots`. Items drag as `{kind:"item"}`, folders as
 `{kind:"folder"}`; folders are accepted only by ＋ 新任務 (`adoptFolder`, which refuses top-level,
-Pin/role folders and ancestors of Groups). Drag sources stop `dragstart` propagation so a nested
+the root/role folders and ancestors of Groups). Drag sources stop `dragstart` propagation so a nested
 item is not overwritten by its parent folder rows.
 
 **Archive sweep** In the service worker on startup and on a daily alarm, and on each render:
