@@ -1,0 +1,15 @@
+{
+  "name": "cairntab",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "author": "TuTu (https://github.com/tutul)",
+  "type": "module",
+  "description": "CairnTab: tasks stay, tabs come and go. A Chrome new tab page backed by a bookmarks folder.",
+  "scripts": {
+    "test": "node --test 'test/*.test.js'"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

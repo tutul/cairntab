@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preview · new tab</title>
+<style>body { background: #f6f5f2; }</style>
+</head>
+<body>
+<!--
+  Renders the real extension/newtab.html + newtab.js against test/fake-chrome.js, so the page can be
+  looked at in any browser without loading the extension. Markup is copied from newtab.html at load
+  time, so the preview cannot drift from the real page.
+-->
+<script type="module">
+  import { createFakeChrome } from "../test/fake-chrome.js";
+  import { NOW, sampleTree } from "../test/fixtures.js";
+  import { demoGroups, demoTabs, demoTree } from "./demo.js";
+
+  // Query flags:
+  //   ?demo                 public demo data (used for the README screenshots) instead of the test fixture
+  //   ?bare                 a Pin folder without role folders
+  //   &theme=dark|light, &accent=<name|#hex>, &bg=plain|tint, &density=compact   preset appearance
+  //   &panel=settings|tabs|bookmarks   open that drawer after load
+  const q = new URLSearchParams(location.search);
+
+  // ?bare: a "Pin" folder that holds only the user's own items and no role folders yet.
+  const bare = {
+    id: "0", title: "", children: [
+      { title: "Bookmarks bar", folderType: "bookmarks-bar", children: [
+        { title: "Pin", children: [
+          { title: "匯入的收藏", children: [{ title: "Figma", url: "https://figma.com/" }] },
+          { title: "ChatGPT", url: "https://chatgpt.com/" },
+        ] },
+      ] },
+      { title: "Other bookmarks", folderType: "other", children: [] },
+    ],
+  };
+  globalThis.chrome = q.has("demo") ? createFakeChrome({
+    tree: demoTree(), tabs: demoTabs, groups: demoGroups, selfTabId: 1,
+  }) : createFakeChrome({
+    tree: q.has("bare") ? bare : sampleTree(),
+    now: NOW,
+    selfTabId: 1,
+    tabs: [
+      { id: 1, url: "fake-extension://fake/newtab.html", active: true },
+      { id: 2, url: "https://github.com/", title: "GitHub" },
+      { id: 3, url: "https://dune.com/example/weekly", title: "Dune", groupId: 900 },
+      { id: 4, url: "https://www.youtube.com/watch?v=abc", title: "Some talk I want to watch later" },
+      { id: 5, url: "https://medium.com/some/long-article", title: "A long article about tab hygiene" },
+    ],
+    groups: [{ id: 900, windowId: 1, title: "Weekly 週報", color: "blue" }],
+  });
+
+  const look = Object.fromEntries(["theme", "accent", "bg", "density"].filter((k) => q.has(k)).map((k) => [k === "bg" ? "background" : k, q.get(k)]));
+  if (Object.keys(look).length) await chrome.storage.local.set({ appearance: look });
+  if (q.has("demo")) try { localStorage.clear(); } catch {} // screenshots start from a clean drawer/theme state
+
+  const html = await (await fetch("../extension/newtab.html")).text();
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const css = document.createElement("link");
+  css.rel = "stylesheet";
+  css.href = `../extension/newtab.css?t=${Date.now()}`; // python http.server lets the browser cache it
+  document.head.append(css);
+  doc.querySelectorAll("script").forEach((s) => s.remove());
+  doc.querySelectorAll("img[src]").forEach((i) => i.setAttribute("src", `../extension/${i.getAttribute("src")}`));
+  document.body.replaceChildren(...doc.body.childNodes);
+  await import("../extension/newtab.js");
+  const panel = { settings: "#settingsBtn", tabs: "#tabsBtn", bookmarks: "#bookmarksBtn" }[q.get("panel")];
+  if (panel) document.querySelector(panel).click();
+</script>
+</body>
+</html>

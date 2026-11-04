@@ -1,0 +1,18 @@
+<!-- CairnTab master icon, used for the 128 px icon. 128 canvas with the artwork inside a 96 px
+     square, per Chrome's guideline of 16 px transparent padding on the 128 px store icon.
+     Stones carry a background-coloured stroke so they stay separate where they touch. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3B4A42"/>
+      <stop offset="1" stop-color="#26302B"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="96" height="96" rx="22" fill="url(#bg)"/>
+  <g stroke="#2C3731" stroke-width="2.5">
+    <ellipse cx="64" cy="91" rx="31" ry="10" fill="#E8E2D4"/>
+    <ellipse cx="62" cy="75" rx="23.5" ry="8.5" fill="#DCD5C5" transform="rotate(-4 62 75)"/>
+    <ellipse cx="65.5" cy="60" rx="16.5" ry="7.5" fill="#E8E2D4" transform="rotate(5 65.5 60)"/>
+    <ellipse cx="63" cy="46.5" rx="10.5" ry="6.8" fill="#E7A14C" transform="rotate(-7 63 46.5)"/>
+  </g>
+</svg>
