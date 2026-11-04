@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Clicking the toolbar icon opens a new tab (CairnTab); its right-click menu has a link to the
+  project on GitHub. Adds the `contextMenus` permission.
 - Inbox order setting: closest to archiving first (default), newest first, or manual with
   drag-to-reorder.
 

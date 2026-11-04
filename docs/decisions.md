@@ -204,3 +204,11 @@ own bookmark order, with the same drag-to-reorder as task pages, so the bookmark
 agree). Ordering is display only: the archive countdown still uses when each item entered Inbox, and
 reordering within Inbox does not reset it (`placeItem` only records `inboxSince` when an item comes
 from another folder). The sort itself is `lib/archive.sortInbox` (pure, tested).
+
+**D-028 Toolbar icon opens a new tab; the GitHub link lives in its menu.** 2026-11-04.
+With no `action` defined, clicking CairnTab's toolbar icon did nothing except show Chrome's menu,
+whose top entry went to the author's profile. Expected behaviour is that clicking the icon opens
+CairnTab, and since CairnTab is the new tab page that is simply `tabs.create({})` next to the current
+tab. The project link moved to an explicit right-click item, "在 GitHub 查看 CairnTab", which opens
+the repository. Costs the `contextMenus` permission (no install warning). Rejected: a popup — it
+would be a second, smaller UI to maintain for something the new tab page already is.

@@ -11,6 +11,13 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
+  "action": {
+    "default_title": "開啟 CairnTab（新分頁）",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
   "minimum_chrome_version": "116",
   "chrome_url_overrides": {
     "newtab": "newtab.html"
@@ -25,6 +32,7 @@
     "tabGroups",
     "storage",
     "alarms",
-    "favicon"
+    "favicon",
+    "contextMenus"
   ]
 }

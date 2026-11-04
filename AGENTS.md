@@ -52,7 +52,7 @@ Load in Chrome: `chrome://extensions` → Developer mode → Load unpacked → `
 
 ## Current state (2026-11-04)
 
-- v0.1.0, public, load-unpacked only; UI in Traditional Chinese. 86 tests (`make ci`); every UI
+- v0.1.0, public, load-unpacked only; UI in Traditional Chinese. 87 tests (`make ci`); every UI
   change is also checked in `dev/preview.html`.
 - Verified in real Chrome: tab groups (tasks, Top Pin), favicons, drag and drop, drawers. Not
   formally tested: recovering task groups by title after a Chrome restart.
@@ -60,7 +60,7 @@ Load in Chrome: `chrome://extensions` → Developer mode → Load unpacked → `
   / all, 收起), Inbox with configurable archive days and Archive view, bookmark drawer (left), open-tabs
   drawer (right, closed by default) with multi-select, settings in the right drawer, click behaviour
   (switch / stay, keep CairnTab), B/T/R/S/Esc keys, appearance settings (D-022). Design history:
-  `docs/decisions.md` D-001…D-027.
+  `docs/decisions.md` D-001…D-028.
 - Not built yet: per-task "review every N days" reminders, English UI/i18n, a Chrome Web Store
   listing. Not possible: Android (Chrome Android has no extensions; the Pin folder syncs anyway).
 - Apache-2.0; `NOTICE` credits the author and must ship with copies (D-026). Fixtures, demo data

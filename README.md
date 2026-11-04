@@ -143,6 +143,7 @@ Requires Chrome 116 or later.
   Chrome keeps keyboard focus in the address bar on a new tab.
 - **Bookmarks drawer**: open/closed and expanded folders are remembered. Chrome's
   "bookmarks bar only on the new tab page" may not apply to CairnTab; the drawer replaces it.
+- **Toolbar icon**: click it to open a new tab (CairnTab). Right-click it for **在 GitHub 查看 CairnTab**.
 - **↻**: re-read everything (useful after Chrome Sync changes bookmarks on another device).
 - **Settings drawer**: appearance, what a click does, the root folder name, after how many days
   Inbox items move to `Archive` (default 30; `0` turns archiving off), and the Inbox order:
@@ -165,6 +166,7 @@ it leaves your browser.
 | `storage` | The small local record above |
 | `alarms` | Archiving expired Inbox items even on days you open no new tab |
 | `favicon` | Showing site icons from Chrome's own cache |
+| `contextMenus` | The "在 GitHub 查看 CairnTab" item in the toolbar icon's right-click menu |
 
 ## Safety guarantees
 
