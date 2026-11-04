@@ -108,7 +108,10 @@ body {
 }
 button { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
-::selection { background: var(--accent-soft); }
+/* Selection: a real accent highlight. The 12% --accent-soft read as muddy grey boxes on the dark
+   palette (seen 2026-11-04 on the welcome card). Controls are not text, so they do not select. */
+::selection { background: color-mix(in srgb, var(--accent) 32%, transparent); color: var(--text); }
+button, .seg, .pin, .chip, .badge, .place-tag, .count, .welcome-roles dt, .usage dt { user-select: none; }
 * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 svg.i { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round;
   stroke-linejoin: round; display: block; flex: none; }

@@ -48,6 +48,7 @@ Load in Chrome: `chrome://extensions` → Developer mode → Load unpacked → `
 | Code after `chrome.tabs.update(selfTabId, {url})` never runs | navigating our own tab unloads the page | do every storage/group write before it; it must be the last call |
 | Every task's fold arrow looked "pressed" | a generic `.icon-btn[aria-expanded="true"]` highlight meant for header toggles also matched the fold buttons | scope it to `.bar .icon-btn` |
 | An entry animation flickers on every bookmark event | each render replaces the DOM, so CSS enter animations replay | animate only state changes (hover, fold, drawers, toast) (D-022) |
+| Text in dark mode sits on muddy grey boxes | that is a text selection; a 12% accent tint is invisible as "selected" on the dark palette | `::selection` uses a 32% accent mix; controls are `user-select: none` |
 | A preview screenshot shows half-light, half-dark cards | it was taken during the .25s theme transition | wait ~1s or screenshot again before judging |
 
 ## Current state (2026-11-04)
