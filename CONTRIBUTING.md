@@ -31,6 +31,8 @@ make preview   # http://127.0.0.1:8770/dev/preview.html — the real page on a f
 - Check UI changes in the preview, in light and dark, and at a narrow width.
 - Use only public sites and made-up titles in fixtures, demo data and screenshots — never data
   from a real browser profile.
+- `README.md` and `README-zh.md` (Traditional Chinese) describe the same thing; update both when
+  behaviour or setup changes.
 - If the UI changed visibly, re-render the README screenshots: `make preview` in one terminal,
   then `make screenshots`.
 

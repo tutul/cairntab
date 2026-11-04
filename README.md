@@ -1,5 +1,7 @@
 # CairnTab
 
+**English** | [繁體中文](README-zh.md)
+
 **Tasks stay, tabs come and go.**
 
 CairnTab replaces Chrome's new tab page with a small task board built from one bookmarks folder.
@@ -133,19 +135,17 @@ Requires Chrome 116 or later.
   **＋ 新任務** (name a new task and file the tab into it). Bookmarks already on the page can be
   dragged between Top, tasks and Inbox the same way.
 - **Layout**: bookmarks drawer on the left, your Pin folder in the middle, open tabs on the right
-  (closed by default; open it from the header). **Esc** closes any open drawer.
+  (closed by default; open it from the header). Settings take over the right drawer while open.
+  Drawers slide over the page, so the middle column never moves; on wide windows they sit in the
+  empty margins, on narrow ones only one opens at a time. Drawers remember whether they were open.
 - **Keys**: **B** bookmarks, **T** open tabs, **R** refresh, **S** settings, **Esc** close drawers. Plain
   letters, ignored while typing in a field or with ⌘/Ctrl/Alt held. Click the page once first:
-  Chrome keeps keyboard focus in the address bar on a new tab. Settings take over the right panel while open and hand it back
-  when closed. Both panels are drawers that slide over the page, so the middle column never moves;
-  on wide windows they sit in the empty margins. Header icons (hover for a label): bookmarks, open
-  tabs, ↻ refresh, settings. Panels remember whether they were open; on narrow windows only one opens
-  at a time.
+  Chrome keeps keyboard focus in the address bar on a new tab.
 - **Bookmarks drawer**: open/closed and expanded folders are remembered. Chrome's
   "bookmarks bar only on the new tab page" may not apply to CairnTab; the drawer replaces it.
 - **↻**: re-read everything (useful after Chrome Sync changes bookmarks on another device).
-- **Settings drawer**: root folder name, and after how many days Inbox items move to `Archive`
-  (default 30; `0` turns archiving off).
+- **Settings drawer**: appearance, what a click does, the root folder name, and after how many days
+  Inbox items move to `Archive` (default 30; `0` turns archiving off).
 - Bookmarklets (`javascript:` links) are shown but cannot be opened from an extension.
 
 ## Privacy and permissions
@@ -216,27 +216,3 @@ built from it, keep the [`NOTICE`](NOTICE) file with it and show its attribution
 can read it (documentation or an about screen), and mark the files you changed — that is what the
 license asks in return.
 
----
-
-## 中文說明
-
-**任務常駐，分頁來去。**
-
-CairnTab 把 Chrome 的新分頁換成一個小型任務板，資料全部來自書籤列上的 `Pin` 資料夾：
-
-- **Top**：約 12 個常用網站。已開就切過去，沒開才打開，並放進名為「Top Pin」的分頁群組；「收起」可一次關掉這些分頁。不會因為被釘選而一直佔記憶體。
-- **任務**：`Groups` 底下每個資料夾是一個任務。可以只開其中一頁，它會自動進到以任務命名的分頁群組；「全開」開啟其餘頁面，「收起」關掉這個任務的分頁，書籤不受影響。
-- **Inbox**：想之後再看的頁面。按「Move to Inbox」（或把分頁拖進 Inbox）會把分頁存成書籤並關掉，釋放記憶體；放超過設定天數（預設 30 天，0 為不封存）會自動移到 `Archive`。
-- **Archive**：一律移到 `Archive`，擴充永遠不會刪除你的書籤。
-
-點網頁後要不要離開 CairnTab，可以在設定 →「點擊網頁時」選：「切過去」（預設，這個分頁變成該網頁）或「留在這頁」（在背景開新分頁，方便連開好幾個）。⌘ 點擊永遠是另一種。切過去時預設會把 CairnTab 這個分頁變成網頁；關掉「切過去時關掉 CairnTab」則會開新分頁、CairnTab 留在原處。分頁標題顯示為「CairnTab」。
-
-外觀可以在設定（S）→「外觀」調整，改了立刻生效：主題、強調色、背景（純色／強調色調／自己的圖片，可調遮罩與模糊）、密度、圓角、字級、Top 圖示大小與名稱、任務欄數、問候語與時鐘，也能匯出／匯入。
-
-下方「開著的其他分頁」可以直接拖到 Top、任務卡片、Inbox，或「＋ 新任務」。
-
-所有內容都是一般書籤，可以隨時在書籤管理員裡新增、移動、刪除，畫面會即時更新；也會跟著 Chrome 同步到其他電腦。
-
-作者：[TuTu](https://github.com/tutul)。授權：Apache-2.0；散布或改作時須保留 `NOTICE` 檔中的作者標示，並註明修改過的檔案。
-
-安裝方式：打開 `chrome://extensions` → 開啟「開發人員模式」→「載入未封裝項目」→ 選 `extension/` 資料夾。
