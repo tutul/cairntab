@@ -1,13 +1,18 @@
 // chrome.storage.local wrapper. Everything here is a convenience: losing it must never lose data
 // (bookmarks are the source of truth; see docs/conventions.md).
 
+import { INBOX_SORTS } from "../lib/archive.js";
 import { normalizeAppearance } from "../lib/theme.js";
 
 // openMode: what a plain click does — "switch" goes to the page (this tab becomes it), "stay" opens it
 // in the background and keeps CairnTab in front (D-024). ⌘/Ctrl-click always does the other one.
 // closeOnSwitch: when a click goes to the page, whether the CairnTab tab turns into it / closes (true)
 // or stays where it is and the page opens in a new tab (false) (D-025).
-export const DEFAULT_SETTINGS = Object.freeze({ rootTitle: "Pin", archiveDays: 30, openMode: "switch", closeOnSwitch: true });
+// inboxSort: "expiring" (closest to archiving first), "newest" (latest first) or "manual" (bookmark
+// order, drag to reorder) (D-027).
+export const DEFAULT_SETTINGS = Object.freeze({
+  rootTitle: "Pin", archiveDays: 30, openMode: "switch", closeOnSwitch: true, inboxSort: "expiring",
+});
 const KEYS = ["settings", "lastOpened", "groupMap", "collapsed", "inboxSince", "iconPage"];
 
 export function createStore(chrome) {
@@ -43,6 +48,7 @@ export function createStore(chrome) {
         next.rootTitle = String(next.rootTitle ?? "").trim() || DEFAULT_SETTINGS.rootTitle;
         if (!["switch", "stay"].includes(next.openMode)) next.openMode = DEFAULT_SETTINGS.openMode;
         next.closeOnSwitch = next.closeOnSwitch !== false;
+        if (!INBOX_SORTS.includes(next.inboxSort)) next.inboxSort = DEFAULT_SETTINGS.inboxSort;
         return next;
       });
     },

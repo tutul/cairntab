@@ -590,3 +590,23 @@ test("switching without giving up this tab opens a new active tab and keeps Cair
   assert.equal(chrome._tabs.get(8).active, true, "already-open page focused");
   assert.ok(chrome._tabs.has(selfTabId), "and CairnTab still kept");
 });
+
+test("inboxSort is stored and junk falls back to expiring (D-027)", async () => {
+  const { actions } = setup();
+  assert.equal((await actions.saveSettings({})).inboxSort, "expiring");
+  assert.equal((await actions.saveSettings({ inboxSort: "manual" })).inboxSort, "manual");
+  assert.equal((await actions.saveSettings({ archiveDays: 7 })).inboxSort, "manual", "other saves keep it");
+  assert.equal((await actions.saveSettings({ inboxSort: "random" })).inboxSort, "expiring");
+});
+
+test("manual Inbox order: placeItem reorders inside Inbox and keeps its age", async () => {
+  const { chrome, actions } = setup();
+  const view = await actions.load({});
+  const first = view.model.inbox[0];
+  const last = view.model.inbox.at(-1); // the 40-day-old sample item was swept on load
+  assert.notEqual(first.id, last.id);
+  await actions.placeItem(last.id, first.id, { after: false });
+  const again = await actions.load({});
+  assert.equal(again.model.inbox[0].id, last.id, "moved to the top of the folder");
+  assert.equal(again.model.inbox[0].dateAdded, last.dateAdded, "reordering within Inbox does not reset the countdown");
+});

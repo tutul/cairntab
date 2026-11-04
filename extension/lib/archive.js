@@ -29,3 +29,17 @@ export function relativeDay(ts, now) {
   if (d === 1) return "昨天";
   return `${d} 天前`;
 }
+
+/** Inbox display orders (D-027). Only the display changes; archiving always uses the age. */
+export const INBOX_SORTS = Object.freeze(["expiring", "newest", "manual"]);
+
+/**
+ * Inbox items in display order. `items` arrive in bookmark order with `dateAdded` already set to
+ * when each entered Inbox. "manual" keeps bookmark order; ties keep it too (sort is stable).
+ */
+export function sortInbox(items, mode = "expiring") {
+  const by = (sign) => [...items].sort((a, b) => sign * ((a.dateAdded || 0) - (b.dateAdded || 0)));
+  if (mode === "newest") return by(-1);
+  if (mode === "manual") return [...items];
+  return by(1);
+}

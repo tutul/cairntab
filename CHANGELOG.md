@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Inbox order setting: closest to archiving first (default), newest first, or manual with
+  drag-to-reorder.
+
 ## 0.1.0 — 2026-11-04
 
 First public release.

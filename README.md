@@ -47,7 +47,7 @@ bookmarks.
 |---|---|---|
 | **Top** | A row of up to ~12 pinned sites | Switches to the tab if it is open, otherwise opens it into a tab group called **Top Pin**. **收起** closes that group's tabs; the **×** on a pin moves it to `Archive`. Pins never stay loaded just because they are pinned. |
 | **Tasks** | One card per folder under `Groups`, with its pages, how many are open, and when you last touched it | Opens that single page into a native tab group named after the task. **全開** opens the rest; **收起** closes the task's tabs. |
-| **Inbox** | Parked pages, with age and days left before archiving | Opens the page. **Archive** moves it to `Archive`. Click **▸ Archive** under it to see archived pages and **移回 Inbox** (the countdown restarts). |
+| **Inbox** | Parked pages, with age and days left before archiving. Sorted closest-to-archiving first by default; settings can switch to newest first or a manual order you drag | Opens the page. **Archive** moves it to `Archive`. Click **▸ Archive** under it to see archived pages and **移回 Inbox** (the countdown restarts). |
 | **Open tabs** (right panel) | Every open tab. Unfiled ones first; filed ones dimmed with a tag saying where they live (Top, a task, Inbox) | On hover (unfiled tabs): **加入任務…** or **Move to Inbox** (bookmark it, close the tab). Tick several (or the header box for all) to act on them at once: Move to Inbox, 加到 Top, 加入任務, 關閉分頁. Or drag onto Top, a task, or Inbox. |
 
 Rename in place: click a task's title (its open tab group is renamed and recoloured with it), or use
@@ -144,8 +144,10 @@ Requires Chrome 116 or later.
 - **Bookmarks drawer**: open/closed and expanded folders are remembered. Chrome's
   "bookmarks bar only on the new tab page" may not apply to CairnTab; the drawer replaces it.
 - **↻**: re-read everything (useful after Chrome Sync changes bookmarks on another device).
-- **Settings drawer**: appearance, what a click does, the root folder name, and after how many days
-  Inbox items move to `Archive` (default 30; `0` turns archiving off).
+- **Settings drawer**: appearance, what a click does, the root folder name, after how many days
+  Inbox items move to `Archive` (default 30; `0` turns archiving off), and the Inbox order:
+  **快到期** (closest to archiving first), **最新** (newest first) or **手動** (bookmark order; drag
+  rows to reorder). The order never changes when an item is archived.
 - Bookmarklets (`javascript:` links) are shown but cannot be opened from an extension.
 
 ## Privacy and permissions

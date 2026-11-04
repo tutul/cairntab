@@ -1,7 +1,7 @@
 // New tab page: DOM only. Data comes from actions.load(); every click goes through an action and
 // is followed by a fresh load, because bookmarks may have changed in between.
 
-import { daysLeft, relativeDay } from "./lib/archive.js";
+import { daysLeft, relativeDay, sortInbox } from "./lib/archive.js";
 import { colorFor } from "./lib/tabs.js";
 import { displayHost } from "./lib/url.js";
 import {
@@ -500,14 +500,14 @@ function renderTasks(model, now) {
 
 function renderInbox(model, settings, now) {
   if (!model.folders.inbox) return null;
-  const rows = [...model.inbox]
-    .sort((a, b) => (a.dateAdded || 0) - (b.dateAdded || 0))
+  const manual = settings.inboxSort === "manual";
+  const rows = sortInbox(model.inbox, settings.inboxSort)
     .map((it) => {
       const left = daysLeft(it.dateAdded, settings.archiveDays, now);
       const badge = left == null ? null
         : el("span", { class: `badge${left <= 3 ? " warn" : ""}`, title: `${settings.archiveDays} 天後自動移到 Archive` },
           left === 0 ? "今天封存" : `剩 ${left} 天`);
-      return itemRow(it, { extra: el("span", { class: "side" }, relativeDay(it.dateAdded, now), " ", badge) });
+      return itemRow(it, { reorder: manual, extra: el("span", { class: "side" }, relativeDay(it.dateAdded, now), " ", badge) });
     });
   return el("section", { class: "block zone", ...dropZone({ role: "inbox" }) },
     el("h2", {}, "Inbox", el("span", { class: "count" }, String(model.inbox.length))),
@@ -1007,6 +1007,7 @@ function render() {
   $("#ensure").hidden = complete;
   renderOpenMode(settings.openMode);
   renderCloseOnSwitch(settings.closeOnSwitch);
+  renderInboxSort(settings.inboxSort);
 
   const app = $("#app");
   const parts = model.root
@@ -1142,6 +1143,22 @@ function renderCloseOnSwitch(on) {
     ? "這個分頁直接變成網頁，不會越開越多。"
     : "網頁開在新分頁，CairnTab 留在原處，之後可以切回來。";
 }
+const INBOX_SORT_HINTS = {
+  expiring: "最快被封存的在最上面。",
+  newest: "剛存進來的在最上面。",
+  manual: "照書籤順序，可拖曳排序。",
+};
+function renderInboxSort(mode) {
+  for (const b of document.querySelectorAll("#inboxSort button")) b.setAttribute("aria-pressed", String(b.dataset.sort === mode));
+  $("#inboxSortHint").textContent = INBOX_SORT_HINTS[mode] ?? "";
+}
+$("#inboxSort").addEventListener("click", (ev) => {
+  const mode = ev.target.closest("button")?.dataset.sort;
+  if (!mode || mode === state?.settings?.inboxSort) return;
+  renderInboxSort(mode);
+  run(() => actions.saveSettings({ inboxSort: mode }), "Inbox 排序已更新");
+});
+
 $("#closeOnSwitch").addEventListener("change", (ev) => {
   renderCloseOnSwitch(ev.target.checked);
   run(() => actions.saveSettings({ closeOnSwitch: ev.target.checked }),

@@ -195,3 +195,12 @@ the source. Rejected: MIT (credit easily lost), GPL (it governs keeping derivati
 A licence covers code, not ideas, so the credit is also made visible: "Created by TuTu" at the top
 of the README, `homepage_url` in the manifest (shown on chrome://extensions and store pages), and a
 "CairnTab · by TuTu" line linking to github.com/tutul at the end of the settings panel.
+
+**D-027 Inbox order is a setting: expiring, newest, or manual.** 2026-11-04.
+Inbox was always shown oldest-first (closest to archiving on top), and neither dragging nor the
+bookmark manager's order could change it. `settings.inboxSort`: `"expiring"` (default, unchanged),
+`"newest"` (latest first, for reading Inbox as a read-later list), or `"manual"` (the Inbox folder's
+own bookmark order, with the same drag-to-reorder as task pages, so the bookmark manager and the page
+agree). Ordering is display only: the archive countdown still uses when each item entered Inbox, and
+reordering within Inbox does not reset it (`placeItem` only records `inboxSince` when an item comes
+from another folder). The sort itself is `lib/archive.sortInbox` (pure, tested).

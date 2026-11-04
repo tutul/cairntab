@@ -22,7 +22,7 @@ button creates them.
 
 | Key | Shape | Lost means |
 |---|---|---|
-| `settings` | `{ rootTitle, archiveDays, openMode, closeOnSwitch }` | defaults: `"Pin"`, 30, `"switch"`, `true` (D-024, D-025) |
+| `settings` | `{ rootTitle, archiveDays, openMode, closeOnSwitch, inboxSort }` | defaults: `"Pin"`, 30, `"switch"`, `true`, `"expiring"` (D-024, D-025, D-027) |
 | `lastOpened` | `{ [bookmarkId]: epochMs }` | "N days ago" shows nothing until reopened |
 | `groupMap` | `{ [taskFolderId]: { groupId, windowId } }` | next open finds the group by title |
 | `collapsed` | `{ [taskFolderId \| "loose"]: true, archive: true }` | cards unfold; for `archive`, `true` means the list is *open* |

@@ -161,3 +161,13 @@ test("describeTabs lists every tab and says where filed ones live", () => {
   const out = describeTabs(tabs, places);
   assert.deepEqual(out.map((t) => [t.id, t.place?.label ?? null]), [[1, "Weekly 週報"], [2, null]]);
 });
+
+test("sortInbox: expiring (oldest first), newest, manual keeps bookmark order (D-027)", async () => {
+  const { sortInbox } = await import("../extension/lib/archive.js");
+  const items = [{ id: "a", dateAdded: 30 }, { id: "b", dateAdded: 10 }, { id: "c", dateAdded: 20 }];
+  const ids = (l) => l.map((i) => i.id).join("");
+  assert.equal(ids(sortInbox(items)), "bca");
+  assert.equal(ids(sortInbox(items, "newest")), "acb");
+  assert.equal(ids(sortInbox(items, "manual")), "abc");
+  assert.equal(ids(items), "abc", "input not mutated");
+});
