@@ -482,3 +482,8 @@ body.dragging .zone { outline-color: var(--line-strong); }
 /* "移到…" on page rows: compact, same height as the Archive button. */
 .row select.move { flex: none; min-width: 0; max-width: 112px; font-size: 12px; padding: 2px 4px; }
 .sgroup > .sfoot { padding: 6px 6px 0; }
+
+/* Delete task (D-037): only while the card is hovered or the button has keyboard focus. */
+.task header .delete-task { opacity: 0; transition: opacity .12s, color .12s; }
+.task:hover header .delete-task, .task header .delete-task:focus-visible { opacity: 1; }
+.task header .delete-task:hover { color: var(--danger, #c4372b); }

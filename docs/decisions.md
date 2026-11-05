@@ -326,3 +326,21 @@ open and give it back when closed (as before on the right), and below 900px only
 is a synced setting, not a per-browser preference, because it is about the user's habits rather than
 the window. The header lists open tabs before bookmarks to match, and the settings button became a
 gear (the sliders icon read as "filters").
+
+**D-037 Deleting a task archives its folder.** 2026-11-05.
+Finished tasks had to be removed in the bookmark manager. Task cards get a bin button (visible on
+hover or keyboard focus); after a confirm dialog that says how many pages are affected, the whole
+task folder moves into `Archive` (`archiveTask`). Its pages then show in the Archive list like any
+archived page. Moving the folder, rather than moving the pages out and removing the empty folder,
+keeps invariant 1 (never delete a bookmark), keeps the pages together under the task's name in the
+bookmark manager, and makes undo free: dragging the folder from the bookmarks drawer onto ＋ 新任務
+(`adoptFolder`) restores the task. Open tabs are not touched — closing them is what 收起 is for, and
+a delete should not also throw away pages the user has open. The loose "未分組" card has no bin.
+
+**D-038 A click outside the drawers closes them.** 2026-11-05.
+Drawers only closed with their × button, their header button or Esc. Now a primary-button
+pointerdown anywhere outside both drawer slots closes every open drawer (and forgets that they were
+open, like Esc). The click itself still goes through: clicking a task page opens it and closes the
+drawer in one go. Exempt: the drawers themselves and the header buttons (which toggle their own
+drawer). Dragging is unaffected — drags start inside a drawer, and a drop is not a pointerdown — so
+filing a tab from the open-tabs drawer onto a task still works with the drawer open.

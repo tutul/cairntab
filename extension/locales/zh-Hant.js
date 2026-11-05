@@ -53,6 +53,10 @@ export default {
   "task.renameHint": "點一下重新命名",
   "task.openAll": "全開",
   "task.closeTabs": "收起",
+  "task.delete": "刪除任務",
+  "task.deleteConfirm": ({ title, n }) =>
+    `刪除任務「${title}」？\n\n裡面的 ${n} 頁會移到 Archive，不會刪除任何書籤；開著的分頁保持不動。`,
+  "toast.taskDeleted": ({ title, n }) => `已刪除任務「${title}」，${n} 頁移到 Archive`,
   "task.openAllTitle": "把還沒開的頁面全部開進這個分頁群組",
   "task.closeTitle": "關掉這個任務的分頁（書籤不受影響）",
   "empty.task": "拖分頁或書籤進來",

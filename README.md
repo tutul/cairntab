@@ -46,7 +46,7 @@ bookmarks.
 | Section | What you see | Click |
 |---|---|---|
 | **Pin** | A row of up to ~12 pinned sites | Switches to the tab if it is open, otherwise opens it into a tab group called **Cairn Pin**. **Close** closes that group's tabs; the **×** on a pin moves it to `Archive`. Pins never stay loaded just because they are pinned. |
-| **Tasks** | One card per folder under `Groups`, with its pages, how many are open, and when you last touched it | Opens that single page into a native tab group named after the task. **Open all** opens the rest; **Close** closes the task's tabs. |
+| **Tasks** | One card per folder under `Groups`, with its pages, how many are open, and when you last touched it | Opens that single page into a native tab group named after the task. **Open all** opens the rest; **Close** closes the task's tabs. The bin icon (on hover) deletes the task after asking: its folder and pages move to `Archive` — nothing is deleted, and dragging the folder from the bookmarks drawer onto **＋ New task** brings it back. |
 | **Inbox** | Parked pages, with age and days left before archiving. Sorted closest-to-archiving first by default; settings can switch to newest first or a manual order you drag | Opens the page. **Move to…** (on hover) moves it to Pin or a task without dragging. **Archive** moves it to `Archive`. Click **▸ Archive** under it to see archived pages and **Back to Inbox** (the countdown restarts). |
 | **Open tabs** (left drawer) | Every open tab. Unfiled ones first; filed ones dimmed with a tag saying where they live (Pin, a task, Inbox) | On hover (unfiled tabs): **Add to task…** or **Move to Inbox** (bookmark it, close the tab). Tick several (or the header box for all) to act on them at once: Move to Inbox, Pin, Add to task, Close tabs. Or drag onto Pin, a task, or Inbox. |
 
@@ -149,7 +149,8 @@ Requires Chrome 116 or later.
   settings on the right (drawers start closed; open them from the header). Settings → Drawer
   position puts each of the three on either side. Drawers on the same side open one at a time, and
   settings cover their side until closed. Drawers slide over the page, so the middle column never
-  moves; on narrow windows only one side opens at a time. Drawers remember whether they were open.
+  moves; on narrow windows only one side opens at a time. Clicking anywhere outside the drawers (or Esc)
+  closes them. Drawers remember whether they were open.
 - **Language**: settings → General → Language: Browser (default; Chinese for any Chinese browser
   language, English otherwise), 中文 or English. Switches instantly. Folder names stay `Pin`,
   `Groups`, `Inbox`, `Archive` in both, since they are your bookmarks.

@@ -18,7 +18,10 @@
   found and renamed.
 - Drawer position setting: open tabs, bookmarks and settings can each slide in from the left or the
   right. New default: open tabs left, bookmarks and settings right.
+- Clicking outside an open drawer closes it.
 - Header: open tabs before bookmarks; the settings button is a gear.
+- Delete a task (bin icon on the card, with a confirmation): the task folder and its pages move to
+  Archive; nothing is deleted.
 - Inbox rows have a **Move to…** menu (Top or any task), so filing from a long Inbox needs no drag.
 - Inbox order setting: closest to archiving first (default), newest first, or manual with
   drag-to-reorder.

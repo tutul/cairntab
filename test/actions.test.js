@@ -675,3 +675,17 @@ test("drawer sides: defaults, partial updates and junk values (D-036)", async ()
   await actions.saveSettings({ drawers: { bookmarks: "up" } });
   assert.deepEqual((await actions.load()).settings.drawers, { tabs: "left", bookmarks: "right", settings: "left" });
 });
+
+test("deleting a task moves its folder into Archive; nothing is deleted (D-037)", async () => {
+  const { chrome, actions, id } = setup();
+  const task = id("Weekly 週報");
+  const pages = [...chrome._nodes.values()].filter((n) => n.url && n.parentId === task).length;
+  const r = await actions.archiveTask(task);
+  assert.deepEqual(r, { pages, title: "Weekly 週報" });
+  assert.equal(chrome._nodes.get(task).parentId, id("Archive"));
+  const view = await actions.load();
+  assert.ok(!view.model.tasks.some((t) => t.id === task));
+  assert.ok(view.model.archive.some((i) => i.title === "Dune dashboard"), "its pages are listed in Archive");
+  await assert.rejects(actions.archiveTask(task), /err\.notTask/, "a task already in Archive is not a task");
+  await assert.rejects(actions.archiveTask("404"), Gone);
+});

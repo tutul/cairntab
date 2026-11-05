@@ -68,6 +68,7 @@ const ICONS = {
   plus: ["M12 5v14", "M5 12h14"],
   inbox: ["M4 13l2.5-7h11L20 13v6H4z", "M4 13h5l1 2h4l1-2h5"],
   archive: ["M4 5h16v4H4z", "M5 9v10h14V9", "M10 13h4"],
+  trash: ["M4 7h16", "M9 7V4.5h6V7", "M6 7l1 13h10l1-13", "M10 11v5.5", "M14 11v5.5"],
   folder: ["M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"],
   star: ["M12 4l2.4 5 5.6.6-4.2 3.8 1.2 5.6L12 16.3 7 19l1.2-5.6L4 9.6 9.6 9z"],
   tabs: ["M3 9a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", "M7 4h11a3 3 0 0 1 3 3v10"],
@@ -574,6 +575,15 @@ function renderTasks(model, now) {
             title: t("task.closeTitle"),
             onclick: () => run(() => actions.closeTask(task.id), (r) => t("toast.closedTabs", { n: r.closed })),
           }, t("task.closeTabs")) : null,
+          task.loose ? null : el("button", {
+            class: "icon-btn small delete-task",
+            title: t("task.delete"),
+            "aria-label": t("task.delete"),
+            onclick: () => {
+              if (!confirm(t("task.deleteConfirm", { title: task.title, n: task.items.length }))) return;
+              run(() => actions.archiveTask(task.id), (r) => t("toast.taskDeleted", { title: r.title, n: r.pages }));
+            },
+          }, icon("trash")),
           fold)),
       el("p", { class: "meta" }, meta),
       el("div", { class: "task-body" },
@@ -1448,6 +1458,16 @@ document.addEventListener("keydown", (e) => {
   if (!sel) return;
   e.preventDefault();
   $(sel).click();
+});
+
+// A primary click anywhere outside the drawers closes them (D-038). pointerdown, so it happens before
+// the click itself, which still goes through (clicking a task page opens it and closes the drawer).
+// The header buttons are left out: they toggle their own drawer. Drags start inside a drawer and are
+// not affected; a drop is not a pointerdown.
+document.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0 || !Object.values(SLOTS).some((s) => $(s).classList.contains("open"))) return;
+  if (e.target.closest?.("#slotLeft, #slotRight, .bar .tools")) return;
+  closeAllDrawers();
 });
 
 // Esc closes whatever drawers are open. A rename field handles its own Esc (cancel) first, and Chrome

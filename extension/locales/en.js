@@ -55,6 +55,10 @@ export default {
   "task.renameHint": "Click to rename",
   "task.openAll": "Open all",
   "task.closeTabs": "Close",
+  "task.delete": "Delete task",
+  "task.deleteConfirm": ({ title, n }) =>
+    `Delete the task “${title}”?\n\nIts ${s(n, "page")} move to Archive — no bookmark is deleted. Open tabs stay as they are.`,
+  "toast.taskDeleted": ({ title, n }) => `Deleted “${title}”; ${s(n, "page")} moved to Archive`,
   "task.openAllTitle": "Open every page that isn't open yet into this tab group",
   "task.closeTitle": "Close this task's tabs (bookmarks stay)",
   "empty.task": "Drag tabs or bookmarks here",

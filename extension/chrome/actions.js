@@ -537,6 +537,22 @@ export function createActions(chrome, { now = () => Date.now(), labels = () => D
     },
 
     /** Move a bookmark to Archive ("done"). Never deletes. */
+    /**
+     * "Delete" a task (D-037): the whole task folder moves into Archive, so its pages show up there
+     * and can still be restored; no bookmark is deleted. Open tabs are left as they are.
+     */
+    async archiveTask(taskId) {
+      const task = await taskFor(taskId);
+      if (!task) throw new Gone("task");
+      const { model, meta } = await readModel();
+      if (!model.tasks.some((t) => !t.loose && t.id === task.id)) throw new UserError("err.notTask");
+      const archiveId = await ensureRole("archive", model, meta.settings);
+      const [sub] = await chrome.bookmarks.getSubTree(task.id);
+      const pages = flatten(sub).length;
+      await chrome.bookmarks.move(task.id, { parentId: archiveId });
+      return { pages, title: task.title };
+    },
+
     async archiveItem(itemId) {
       await getNode(itemId);
       const { model, meta } = await readModel();
