@@ -66,119 +66,159 @@
     <span class="spacer"></span>
     <button class="icon-btn" id="settingsClose" data-i18n-attr="aria-label:set.closeAria">×</button>
   </div>
+  <!-- Settings are split into tabs (D-039); the last one used is remembered. -->
+  <div class="stabs" role="tablist" id="settingsTabs">
+    <button type="button" role="tab" id="stab-general" aria-controls="spane-general" data-tab="general" data-i18n="set.general"></button>
+    <button type="button" role="tab" id="stab-appearance" aria-controls="spane-appearance" data-tab="appearance" data-i18n="set.appearance"></button>
+    <button type="button" role="tab" id="stab-layout" aria-controls="spane-layout" data-tab="layout" data-i18n="set.layout"></button>
+    <button type="button" role="tab" id="stab-folders" aria-controls="spane-folders" data-tab="folders" data-i18n="set.folders"></button>
+    <button type="button" role="tab" id="stab-about" aria-controls="spane-about" data-tab="about" data-i18n="set.about"></button>
+  </div>
   <div class="settings-body">
-    <section class="sgroup" aria-labelledby="sgLang">
-      <h3 id="sgLang" data-i18n="set.general"></h3>
-      <div class="scard">
-        <div class="srow">
-          <div class="stext"><span class="slabel" data-i18n="set.language"></span></div>
-          <div class="seg" role="group" data-i18n-attr="aria-label:set.language" id="language">
-            <button type="button" data-lang="auto" data-i18n="lang.auto"></button>
-            <button type="button" data-lang="zh-Hant" lang="zh-Hant" data-i18n="lang.zh-Hant"></button>
-            <button type="button" data-lang="en" lang="en" data-i18n="lang.en"></button>
+    <div class="spane" role="tabpanel" id="spane-general" aria-labelledby="stab-general" data-pane="general">
+      <section class="sgroup" aria-labelledby="sgLang">
+        <h3 id="sgLang" data-i18n="set.language"></h3>
+        <div class="scard">
+          <div class="srow">
+            <div class="stext"><span class="slabel" data-i18n="set.uiLanguage"></span></div>
+            <div class="seg" role="group" data-i18n-attr="aria-label:set.language" id="language">
+              <button type="button" data-lang="auto" data-i18n="lang.auto"></button>
+              <button type="button" data-lang="zh-Hant" lang="zh-Hant" data-i18n="lang.zh-Hant"></button>
+              <button type="button" data-lang="en" lang="en" data-i18n="lang.en"></button>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="sgroup" aria-labelledby="sgDrawers">
-      <h3 id="sgDrawers" data-i18n="set.drawers"></h3>
-      <div class="scard" id="drawerSides">
-        <div class="srow">
-          <div class="stext"><span class="slabel" data-i18n="hdr.tabs"></span></div>
-          <div class="seg" role="group" data-i18n-attr="aria-label:hdr.tabs" data-view="tabs">
-            <button type="button" data-side="left" data-i18n="side.left"></button>
-            <button type="button" data-side="right" data-i18n="side.right"></button>
+      <section class="sgroup" aria-labelledby="sgOpen">
+        <h3 id="sgOpen" data-i18n="set.clickGroup"></h3>
+        <div class="scard">
+          <div class="srow">
+            <div class="stext">
+              <span class="slabel" data-i18n="set.openMode"></span>
+              <p class="shint" id="openModeHint"></p>
+            </div>
+            <div class="seg" role="group" data-i18n-attr="aria-label:set.openMode" id="openMode">
+              <button type="button" data-mode="switch" data-i18n="openMode.switch"></button>
+              <button type="button" data-mode="stay" data-i18n="openMode.stay"></button>
+            </div>
+          </div>
+          <div class="srow">
+            <div class="stext">
+              <label class="slabel" for="closeOnSwitch" data-i18n="set.closeOnSwitch"></label>
+              <p class="shint" id="closeOnSwitchHint"></p>
+            </div>
+            <input type="checkbox" class="switch" role="switch" id="closeOnSwitch">
           </div>
         </div>
-        <div class="srow">
-          <div class="stext"><span class="slabel" data-i18n="hdr.bookmarks"></span></div>
-          <div class="seg" role="group" data-i18n-attr="aria-label:hdr.bookmarks" data-view="bookmarks">
-            <button type="button" data-side="left" data-i18n="side.left"></button>
-            <button type="button" data-side="right" data-i18n="side.right"></button>
-          </div>
-        </div>
-        <div class="srow">
-          <div class="stext"><span class="slabel" data-i18n="hdr.settings"></span></div>
-          <div class="seg" role="group" data-i18n-attr="aria-label:hdr.settings" data-view="settings">
-            <button type="button" data-side="left" data-i18n="side.left"></button>
-            <button type="button" data-side="right" data-i18n="side.right"></button>
-          </div>
-        </div>
-      </div>
-      <p class="shint sfoot" data-i18n="set.drawersHint"></p>
-    </section>
+      </section>
 
-    <div id="appearance" class="appearance"></div>
+      <section class="sgroup" aria-labelledby="sgDrawers">
+        <h3 id="sgDrawers" data-i18n="set.drawers"></h3>
+        <div class="scard" id="drawerSides">
+          <div class="srow">
+            <div class="stext"><span class="slabel" data-i18n="hdr.tabs"></span></div>
+            <div class="seg" role="group" data-i18n-attr="aria-label:hdr.tabs" data-view="tabs">
+              <button type="button" data-side="left" data-i18n="side.left"></button>
+              <button type="button" data-side="right" data-i18n="side.right"></button>
+            </div>
+          </div>
+          <div class="srow">
+            <div class="stext"><span class="slabel" data-i18n="hdr.bookmarks"></span></div>
+            <div class="seg" role="group" data-i18n-attr="aria-label:hdr.bookmarks" data-view="bookmarks">
+              <button type="button" data-side="left" data-i18n="side.left"></button>
+              <button type="button" data-side="right" data-i18n="side.right"></button>
+            </div>
+          </div>
+          <div class="srow">
+            <div class="stext"><span class="slabel" data-i18n="hdr.settings"></span></div>
+            <div class="seg" role="group" data-i18n-attr="aria-label:hdr.settings" data-view="settings">
+              <button type="button" data-side="left" data-i18n="side.left"></button>
+              <button type="button" data-side="right" data-i18n="side.right"></button>
+            </div>
+          </div>
+        </div>
+        <p class="shint sfoot" data-i18n="set.drawersHint"></p>
+      </section>
+    </div>
 
-    <section class="sgroup" aria-labelledby="sgOpen">
-      <h3 id="sgOpen" data-i18n="set.clickGroup"></h3>
-      <div class="scard">
-        <div class="srow">
-          <div class="stext">
-            <span class="slabel" data-i18n="set.openMode"></span>
-            <p class="shint" id="openModeHint"></p>
-          </div>
-          <div class="seg" role="group" data-i18n-attr="aria-label:set.openMode" id="openMode">
-            <button type="button" data-mode="switch" data-i18n="openMode.switch"></button>
-            <button type="button" data-mode="stay" data-i18n="openMode.stay"></button>
-          </div>
-        </div>
-        <div class="srow">
-          <div class="stext">
-            <label class="slabel" for="closeOnSwitch" data-i18n="set.closeOnSwitch"></label>
-            <p class="shint" id="closeOnSwitchHint"></p>
-          </div>
-          <input type="checkbox" class="switch" role="switch" id="closeOnSwitch">
-        </div>
-      </div>
-    </section>
+    <div class="spane" role="tabpanel" id="spane-appearance" aria-labelledby="stab-appearance" data-pane="appearance">
+      <div class="appearance" id="appearanceLook"></div>
+    </div>
 
-    <section class="sgroup" aria-labelledby="sgFolder">
-      <h3 id="sgFolder" data-i18n="set.folderGroup"></h3>
-      <div class="scard">
-        <div class="srow stack">
-          <label class="slabel" for="rootTitle" data-i18n="set.root"></label>
-          <input id="rootTitle" type="text" autocomplete="off" spellcheck="false">
-          <p class="shint" data-i18n="set.rootHint"></p>
-        </div>
-        <div class="srow">
-          <div class="stext">
-            <label class="slabel" for="archiveDays" data-i18n="set.archiveDays"></label>
-            <p class="shint" data-i18n="set.archiveDaysHint"></p>
-          </div>
-          <span class="unit-input"><input id="archiveDays" type="number" min="0" step="1"><span data-i18n="unit.days"></span></span>
-        </div>
-        <div class="srow">
-          <div class="stext">
-            <span class="slabel" data-i18n="set.inboxSort"></span>
-            <p class="shint" id="inboxSortHint"></p>
-          </div>
-          <div class="seg" role="group" data-i18n-attr="aria-label:set.inboxSort" id="inboxSort">
-            <button type="button" data-sort="expiring" data-i18n="sort.expiring"></button>
-            <button type="button" data-sort="newest" data-i18n="sort.newest"></button>
-            <button type="button" data-sort="manual" data-i18n="sort.manual"></button>
-          </div>
-        </div>
-        <div class="srow">
-          <div class="stext">
-            <span class="slabel" data-i18n="set.structure"></span>
-            <p class="shint" id="structureInfo"></p>
-          </div>
-          <span class="status" id="structureOk" data-i18n="structure.ok" hidden></span>
-          <button class="btn small" id="ensure" type="button" data-i18n="structure.create"></button>
-        </div>
-      </div>
-    </section>
+    <div class="spane" role="tabpanel" id="spane-layout" aria-labelledby="stab-layout" data-pane="layout">
+      <div class="appearance" id="appearanceLayout"></div>
+    </div>
 
-    <section class="sgroup" aria-labelledby="sgUsage">
-      <h3 id="sgUsage" data-i18n="set.usage"></h3>
-      <div class="scard usage">
-        <p class="shint" data-i18n="usage.lead"></p>
-        <dl id="usageRoles"></dl>
-      </div>
-    </section>
+    <div class="spane" role="tabpanel" id="spane-folders" aria-labelledby="stab-folders" data-pane="folders">
+      <section class="sgroup" aria-labelledby="sgFolder">
+        <h3 id="sgFolder" data-i18n="set.folderGroup"></h3>
+        <div class="scard">
+          <div class="srow stack">
+            <label class="slabel" for="rootTitle" data-i18n="set.root"></label>
+            <input id="rootTitle" type="text" autocomplete="off" spellcheck="false">
+            <p class="shint" data-i18n="set.rootHint"></p>
+          </div>
+          <div class="srow">
+            <div class="stext">
+              <span class="slabel" data-i18n="set.structure"></span>
+              <p class="shint" id="structureInfo"></p>
+            </div>
+            <span class="status" id="structureOk" data-i18n="structure.ok" hidden></span>
+            <button class="btn small" id="ensure" type="button" data-i18n="structure.create"></button>
+          </div>
+        </div>
+      </section>
 
+      <section class="sgroup" aria-labelledby="sgInbox">
+        <h3 id="sgInbox" data-i18n="sec.inbox"></h3>
+        <div class="scard">
+          <div class="srow">
+            <div class="stext">
+              <label class="slabel" for="archiveDays" data-i18n="set.archiveDays"></label>
+              <p class="shint" data-i18n="set.archiveDaysHint"></p>
+            </div>
+            <span class="unit-input"><input id="archiveDays" type="number" min="0" step="1"><span data-i18n="unit.days"></span></span>
+          </div>
+          <div class="srow">
+            <div class="stext">
+              <span class="slabel" data-i18n="set.inboxSort"></span>
+              <p class="shint" id="inboxSortHint"></p>
+            </div>
+            <div class="seg" role="group" data-i18n-attr="aria-label:set.inboxSort" id="inboxSort">
+              <button type="button" data-sort="expiring" data-i18n="sort.expiring"></button>
+              <button type="button" data-sort="newest" data-i18n="sort.newest"></button>
+              <button type="button" data-sort="manual" data-i18n="sort.manual"></button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="spane" role="tabpanel" id="spane-about" aria-labelledby="stab-about" data-pane="about">
+      <section class="sgroup" aria-labelledby="sgUsage">
+        <h3 id="sgUsage" data-i18n="set.usage"></h3>
+        <div class="scard usage">
+          <p class="shint" data-i18n="usage.lead"></p>
+          <dl id="usageRoles"></dl>
+        </div>
+      </section>
+
+      <section class="sgroup" aria-labelledby="sgLinks">
+        <h3 id="sgLinks" data-i18n="set.links"></h3>
+        <div class="scard">
+          <a class="srow slink" href="https://github.com/tutul/cairntab" target="_blank" rel="noopener">
+            <div class="stext">
+              <span class="slabel" data-i18n="about.repo"></span>
+              <p class="shint">github.com/tutul/cairntab</p>
+            </div>
+            <span class="slink-arrow" aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </section>
+    </div>
+
+    <!-- Shown under every tab (D-039). -->
     <footer class="credit">
       <a href="https://github.com/tutul" target="_blank" rel="noopener">CairnTab · by TuTu</a>
       <span id="version"></span>

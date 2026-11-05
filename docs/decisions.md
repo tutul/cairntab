@@ -344,3 +344,35 @@ open, like Esc). The click itself still goes through: clicking a task page opens
 drawer in one go. Exempt: the drawers themselves and the header buttons (which toggle their own
 drawer). Dragging is unaffected — drags start inside a drawer, and a drop is not a pointerdown — so
 filing a tab from the open-tabs drawer onto a task still works with the drawer open.
+
+**D-039 Settings in tabs.** 2026-11-05.
+The settings drawer had grown to eight groups in one long scroll. It now has a tab strip under the
+title — 一般 General (language, click behaviour, drawer positions), 外觀 Appearance (theme, accent,
+background, export/import), 版面 Layout (density and sizes, pins and header), 資料夾 Folders (root
+folder, structure, Inbox archiving and order), 說明 About (how it works, a link to the GitHub
+repository). The "CairnTab · by TuTu" credit and the version sit at the bottom of every tab, not only
+About: the attribution should be visible wherever the panel is opened (NOTICE, D-026). Grouped by
+what people come to change, and balanced so no tab needs much scrolling. The strip sits outside the
+scrolling body, so it stays visible; the last tab is remembered per browser (localStorage), arrow
+keys move between tabs, and the welcome screen's "use another name" opens Folders directly. The
+selected tab uses the accent colour: a panel-coloured pill was nearly invisible in dark mode.
+
+**D-040 Content width is a slider.** 2026-11-05.
+The middle column was capped at 1100px (1320px with four task columns), which leaves wide margins on
+large screens and was not adjustable. `appearance.pageWidth` (760–2400px, step 20, default 1100)
+sets `--page-w`, the max width of the header and the page; on a window narrower than the setting the
+column simply fills it. It lives in Settings → 版面 next to density and task columns, previews live
+while dragging and saves on release like the other sliders. An unset width with four columns
+normalises to the old 1320px, so nobody's layout changes until they move the slider. The search bar
+keeps its own 620px cap: a search field as wide as a 2000px page is harder to read, not easier.
+
+**D-041 Typed width and named width presets.** 2026-11-05. Extends D-040.
+A slider is quick but imprecise, and people who move between a laptop and a monitor want to switch
+widths, not re-drag. The width row now has a number box next to the slider (kept in step; typed
+values are clamped to 760–2400 and rounded to the 20px step) and up to five named presets,
+`appearance.widthPresets = [{ name, width }]`. "儲存目前寬度" asks for a name (`prompt`, like new
+task names); the same name, ignoring case, overwrites that preset; a sixth is refused with the save
+button disabled. A chip applies its width, × removes it, and the chip matching the current width is
+highlighted. Presets are part of the appearance object, so they are exported and imported with it.
+The presets hold width only, not whole appearance profiles: the request was about fitting screens,
+and a full profile system would duplicate export/import.

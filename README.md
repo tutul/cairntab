@@ -13,7 +13,7 @@ memory.
 > CairnTab marks your tasks the same way, so the tabs themselves can be closed without worry.
 
 Created by [TuTu](https://github.com/tutul). Status: v0.1, load-unpacked only. The UI is in English
-and Traditional Chinese (settings → Language; follows the browser by default). Licensed under Apache-2.0 — see [License](#license).
+and Traditional Chinese (settings → General; follows the browser by default). Licensed under Apache-2.0 — see [License](#license).
 
 ![CairnTab: pins, task cards and the Inbox](docs/screenshots/overview.png)
 
@@ -57,10 +57,11 @@ to put it before/after it — that reorders the bookmarks themselves.
 
 ### Appearance
 
-Settings (S) → Appearance changes the look instantly, no reload (every setting, including the folder name
+Settings (S) → Appearance and Layout change the look instantly, no reload (every setting, including the folder name
 and archive days, saves as soon as you change it): theme (system / light / dark), accent
 colour (presets or any colour), background (plain, a tint of the accent, or your own image with
-adjustable dim and blur — cards turn frosted over it), density, corner radius, font size, pin icon
+adjustable dim and blur — cards turn frosted over it), content width (slider or typed number, 760–2400px; save up to 5 named widths such as "Laptop"
+and "Monitor" and switch with one click), density, corner radius, font size, pin icon
 size and labels, number of task columns, and whether to show the greeting and clock. Export / Import copy
 the settings as JSON (the image is not included). Pin icons sit on a tile tinted from their own
 favicon; task cards carry their tab group's colour.
@@ -125,7 +126,7 @@ Requires Chrome 116 or later.
 ## Using it
 
 - **Click** an item: focus it if open, otherwise open it in the current tab. With settings →
-  When you click a page → **Stay here**, a click instead opens it in the background and CairnTab stays in front,
+  General → When you click a page → **Stay here**, a click instead opens it in the background and CairnTab stays in front,
   so you can open several in a row (a toast confirms each; Open all does the same).
 - **⌘/Ctrl-click** does whichever of the two the plain click does not; **middle-click** always opens
   in the background.
@@ -146,8 +147,8 @@ Requires Chrome 116 or later.
   **＋ New task** (name a new task and file the tab into it). Bookmarks already on the page can be
   dragged between Pin, tasks and Inbox the same way.
 - **Layout**: open tabs drawer on the left, your CairnTab folder in the middle, bookmarks drawer and
-  settings on the right (drawers start closed; open them from the header). Settings → Drawer
-  position puts each of the three on either side. Drawers on the same side open one at a time, and
+  settings on the right (drawers start closed; open them from the header). Settings → General →
+  Drawer position puts each of the three on either side. Drawers on the same side open one at a time, and
   settings cover their side until closed. Drawers slide over the page, so the middle column never
   moves; on narrow windows only one side opens at a time. Clicking anywhere outside the drawers (or Esc)
   closes them. Drawers remember whether they were open.
@@ -161,10 +162,13 @@ Requires Chrome 116 or later.
   "bookmarks bar only on the new tab page" may not apply to CairnTab; the drawer replaces it.
 - **Toolbar icon**: click it to open a new tab (CairnTab). Right-click it for **View CairnTab on GitHub**.
 - **↻**: re-read everything (useful after Chrome Sync changes bookmarks on another device).
-- **Settings drawer**: appearance, what a click does, the root folder name, after how many days
-  Inbox items move to `Archive` (default 30; `0` turns archiving off), and the Inbox order:
+- **Settings drawer**, in five tabs (the last one used reopens): **General** (language, what a click
+  does, drawer positions), **Appearance** (theme, accent, background, export/import), **Layout**
+  (content width, density, sizes, task columns, pins and header), **Folders** (the root folder name, after how many
+  days Inbox items move to `Archive` — default 30, `0` turns archiving off — and the Inbox order:
   **Expiring** (closest to archiving first), **Newest** or **Manual** (bookmark order; drag
-  rows to reorder). The order never changes when an item is archived.
+  rows to reorder; the order never changes when an item is archived), and **About** (how it works, a link to
+  this repository). "CairnTab · by TuTu" sits at the bottom of every tab.
 - Bookmarklets (`javascript:` links) are shown but cannot be opened from an extension.
 
 ## Privacy and permissions

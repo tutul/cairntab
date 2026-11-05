@@ -6,7 +6,7 @@ import { highlight, search, searchEntries, tokenize } from "./lib/search.js";
 import { colorFor } from "./lib/tabs.js";
 import { displayHost } from "./lib/url.js";
 import {
-  ACCENTS, accentHex, dominantColor, exportAppearance, greetingFor, importAppearance, normalizeAppearance, themeTokens,
+  ACCENTS, MAX_WIDTH_PRESETS, PAGE_WIDTH_STEP, accentHex, clampPageWidth, removeWidthPreset, saveWidthPreset, dominantColor, exportAppearance, greetingFor, importAppearance, normalizeAppearance, themeTokens,
 } from "./lib/theme.js";
 import { createActions, Gone, TOP_GROUP_TITLE } from "./chrome/actions.js";
 import { normalizeDrawers } from "./chrome/store.js";
@@ -816,6 +816,7 @@ function renderNoRoot(settings, candidates = []) {
           class: "btn ghost",
           onclick: () => {
             setView("settings", true);
+            showSettingsTab("folders");
             setTimeout(() => $("#rootTitle").focus(), 300);
           },
         }, t("welcome.otherName"))),
@@ -1079,10 +1080,10 @@ function seg(label, key, options, opts) {
     }, text))), opts);
 }
 
-function range(label, key, min, max, unit) {
+function range(label, key, min, max, unit, { step = 1, hint = null } = {}) {
   const out = el("output", {}, `${appearance[key]}${unit}`);
   const input = el("input", {
-    type: "range", min, max, step: 1, value: appearance[key], "aria-label": label,
+    type: "range", min, max, step, value: appearance[key], "aria-label": label,
     // Drag = live preview only; release = one save (not one storage write per pixel).
     oninput: (ev) => {
       out.textContent = `${ev.target.value}${unit}`;
@@ -1090,7 +1091,7 @@ function range(label, key, min, max, unit) {
     },
     onchange: (ev) => patchAppearance({ [key]: Number(ev.target.value) }),
   });
-  return srow(label, el("div", { class: "range-row" }, input, out));
+  return srow(label, el("div", { class: "range-row" }, input, out), { hint });
 }
 
 function toggle(label, key, hint) {
@@ -1102,6 +1103,62 @@ function toggle(label, key, hint) {
     checked: appearance[key],
     onchange: (ev) => patchAppearance({ [key]: ev.target.checked }),
   }), { hint });
+}
+
+/**
+ * Content width (D-040/D-041): slider and number box kept in step, plus up to MAX_WIDTH_PRESETS named
+ * widths ("Laptop", "Monitor") to switch between screens in one click.
+ */
+function pageWidthRow() {
+  const w = appearance.pageWidth;
+  const bounds = { min: 760, max: 2400, step: PAGE_WIDTH_STEP };
+  const num = el("input", {
+    type: "number", ...bounds, value: w, "aria-label": t("set.pageWidth"),
+    onchange: (ev) => {
+      const v = clampPageWidth(ev.target.value);
+      ev.target.value = v;
+      patchAppearance({ pageWidth: v });
+    },
+    onkeydown: (ev) => ev.key === "Enter" && ev.target.blur(),
+  });
+  const slider = el("input", {
+    type: "range", ...bounds, value: w, "aria-label": t("set.pageWidth"),
+    // Drag = live preview only; release = one save.
+    oninput: (ev) => {
+      num.value = ev.target.value;
+      applyAppearance({ ...appearance, pageWidth: Number(ev.target.value) }, { cache: false });
+    },
+    onchange: (ev) => patchAppearance({ pageWidth: Number(ev.target.value) }),
+  });
+  const list = appearance.widthPresets;
+  const full = list.length >= MAX_WIDTH_PRESETS;
+  const presets = list.map((p) => el("span", { class: `preset${p.width === w ? " on" : ""}` },
+    el("button", {
+      type: "button", class: "preset-main", title: t("preset.apply", { width: p.width }),
+      onclick: () => patchAppearance({ pageWidth: p.width }),
+    }, el("span", { class: "preset-name" }, p.name), el("span", { class: "preset-w" }, String(p.width))),
+    el("button", {
+      type: "button", class: "preset-x", title: t("preset.remove", { name: p.name }), "aria-label": t("preset.remove", { name: p.name }),
+      onclick: () => patchAppearance({ widthPresets: removeWidthPreset(list, p.name) }),
+    }, icon("x"))));
+  const save = el("button", {
+    type: "button", class: "btn small ghost preset-add", disabled: full,
+    title: full ? t("preset.full", { n: MAX_WIDTH_PRESETS }) : t("preset.saveTitle"),
+    onclick: () => {
+      const name = prompt(t("preset.prompt", { width: appearance.pageWidth }));
+      if (name == null) return;
+      try {
+        const next = saveWidthPreset(appearance.widthPresets, name, appearance.pageWidth);
+        patchAppearance({ widthPresets: next }).then(() => toast(t("toast.presetSaved", { name: name.trim() })));
+      } catch (e) {
+        toast(errorText(e));
+      }
+    },
+  }, icon("plus"), t("preset.save"));
+  return el("div", { class: "srow stack" },
+    el("div", { class: "stext" }, el("span", { class: "slabel" }, t("set.pageWidth")), el("p", { class: "shint" }, t("set.pageWidthHint"))),
+    el("div", { class: "width-row" }, slider, el("span", { class: "unit-input" }, num, el("span", {}, "px"))),
+    el("div", { class: "presets" }, presets, save));
 }
 
 const SIZES = () => [["s", t("size.s")], ["m", t("size.m")], ["l", t("size.l")]];
@@ -1187,14 +1244,17 @@ function renderAppearance() {
       },
     }, t("set.reset")));
 
-  $("#appearance").replaceChildren(
-    sgroup(t("set.appearance"), [
+  // Two settings tabs (D-039): colours and background (+ export/import) under 外觀, sizes under 版面.
+  $("#appearanceLook").replaceChildren(
+    sgroup(t("set.colors"), [
       seg(t("set.theme"), "theme", [["system", t("theme.system")], ["light", t("theme.light")], ["dark", t("theme.dark")]]),
       srow(t("set.accent"), swatches, { stack: true }),
       seg(t("set.background"), "background", [["plain", t("bg.plain")], ["tint", t("bg.tint")], ["image", t("bg.image")]]),
       file, ...imageRows,
-    ]),
-    sgroup(t("set.layout"), [
+    ], footer));
+  $("#appearanceLayout").replaceChildren(
+    sgroup(t("set.sizing"), [
+      pageWidthRow(),
       seg(t("set.density"), "density", [["comfortable", t("density.comfortable")], ["compact", t("density.compact")]]),
       seg(t("set.fontSize"), "fontSize", SIZES()),
       range(t("set.radius"), "radius", 4, 20, "px"),
@@ -1205,8 +1265,38 @@ function renderAppearance() {
       toggle(t("set.pinLabels"), "pinLabels"),
       toggle(t("set.greeting"), "greeting", t("set.greetingHint")),
       toggle(t("set.clock"), "clock"),
-    ], footer));
+    ]));
 }
+
+// ---------- settings tabs (D-039) ----------
+
+const SETTINGS_TABS = ["general", "appearance", "layout", "folders", "about"];
+
+function showSettingsTab(tab) {
+  const current = SETTINGS_TABS.includes(tab) ? tab : SETTINGS_TABS[0];
+  for (const b of document.querySelectorAll("#settingsTabs [data-tab]")) {
+    const on = b.dataset.tab === current;
+    b.setAttribute("aria-selected", String(on));
+    b.tabIndex = on ? 0 : -1;
+  }
+  for (const pane of document.querySelectorAll("#settings .spane")) pane.hidden = pane.dataset.pane !== current;
+  $("#settings .settings-body").scrollTop = 0;
+  pref.set("settings.tab", current);
+}
+
+$("#settingsTabs").addEventListener("click", (ev) => {
+  const tab = ev.target.closest("[data-tab]")?.dataset.tab;
+  if (tab) showSettingsTab(tab);
+});
+// Arrow keys move between tabs, as in any tablist.
+$("#settingsTabs").addEventListener("keydown", (ev) => {
+  if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+  const i = SETTINGS_TABS.indexOf(pref.get("settings.tab", SETTINGS_TABS[0]));
+  const next = SETTINGS_TABS[(i + (ev.key === "ArrowRight" ? 1 : -1) + SETTINGS_TABS.length) % SETTINGS_TABS.length];
+  showSettingsTab(next);
+  $(`#stab-${next}`).focus();
+  ev.preventDefault();
+});
 
 // ---------- search (D-030) ----------
 //
@@ -1560,6 +1650,7 @@ setInterval(() => document.hidden || tickClock(), 15_000);
 document.addEventListener("visibilitychange", () => document.hidden || tickClock());
 
 selfTabId = (await chrome.tabs.getCurrent?.())?.id ?? null;
+showSettingsTab(pref.get("settings.tab", "general"));
 applyDrawers();
 renderDrawerSides();
 await reload();

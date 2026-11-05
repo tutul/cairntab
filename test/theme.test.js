@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ACCENTS, DEFAULT_APPEARANCE, normalizeAppearance, themeTokens, greetingFor, dominantColor,
-  exportAppearance, importAppearance, accentHex,
+  exportAppearance, importAppearance, accentHex, MAX_WIDTH_PRESETS, removeWidthPreset, saveWidthPreset,
 } from "../extension/lib/theme.js";
 
 test("normalizeAppearance fills defaults and drops junk", () => {
@@ -58,4 +58,30 @@ test("export → import round-trips; foreign JSON is refused", () => {
   assert.deepEqual(importAppearance(exportAppearance(a)), a);
   assert.throws(() => importAppearance("{}"), /err\.importNotCairn/);
   assert.throws(() => importAppearance("nope"), /err\.importJson/);
+});
+
+test("page width: default, clamp, step, and the old 4-column width (D-040)", () => {
+  assert.equal(themeTokens({}).vars["--page-w"], "1100px");
+  assert.equal(themeTokens({ pageWidth: 1500 }).vars["--page-w"], "1500px");
+  assert.equal(normalizeAppearance({ pageWidth: 99999 }).pageWidth, 2400);
+  assert.equal(normalizeAppearance({ pageWidth: 10 }).pageWidth, 760);
+  assert.equal(normalizeAppearance({ pageWidth: 1311 }).pageWidth, 1320, "rounded to the slider step");
+  assert.equal(normalizeAppearance({ columns: "4" }).pageWidth, 1320, "unset + 4 columns keeps the old width");
+  assert.equal(normalizeAppearance({ columns: "4", pageWidth: 1000 }).pageWidth, 1000);
+});
+
+test("width presets: save, overwrite by name, limit, remove, normalise (D-041)", () => {
+  let p = saveWidthPreset([], " Laptop ", 1111);
+  assert.deepEqual(p, [{ name: "Laptop", width: 1120 }]);
+  p = saveWidthPreset(p, "laptop", 1300);
+  assert.deepEqual(p, [{ name: "Laptop", width: 1300 }], "same name, any case, overwrites in place");
+  for (let i = 1; i < MAX_WIDTH_PRESETS; i++) p = saveWidthPreset(p, `S${i}`, 800 + i * 100);
+  assert.equal(p.length, MAX_WIDTH_PRESETS);
+  assert.throws(() => saveWidthPreset(p, "one more", 900), /err\.presetsFull/);
+  assert.throws(() => saveWidthPreset([], "  ", 900), /err\.presetNameEmpty/);
+  assert.equal(saveWidthPreset(p, "S1", 2000).find((x) => x.name === "S1").width, 2000, "overwriting works when full");
+  assert.deepEqual(removeWidthPreset(p, "LAPTOP").map((x) => x.name), ["S1", "S2", "S3", "S4"]);
+  const n = normalizeAppearance({ widthPresets: [{ name: "a", width: 99999 }, { name: "A", width: 900 }, { name: "", width: 900 }, "junk"] });
+  assert.deepEqual(n.widthPresets, [{ name: "a", width: 2400 }]);
+  assert.deepEqual(normalizeAppearance({}).widthPresets, []);
 });

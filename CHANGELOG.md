@@ -18,6 +18,9 @@
   found and renamed.
 - Drawer position setting: open tabs, bookmarks and settings can each slide in from the left or the
   right. New default: open tabs left, bookmarks and settings right.
+- Content width (Layout tab): the middle column's maximum width, 760–2400px, by slider or typed
+  number; up to 5 named widths can be saved and applied in one click.
+- Settings are split into tabs: General, Appearance, Layout, Folders, About.
 - Clicking outside an open drawer closes it.
 - Header: open tabs before bookmarks; the settings button is a gear.
 - Delete a task (bin icon on the card, with a confirmation): the task folder and its pages move to

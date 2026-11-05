@@ -26,6 +26,8 @@ export const DEFAULT_APPEARANCE = Object.freeze({
   pinSize: "m", // s | m | l
   pinLabels: true,
   columns: "auto", // auto | 2 | 3 | 4
+  pageWidth: 1100, // 760–2400 px, the middle column's maximum width (D-040)
+  widthPresets: Object.freeze([]), // up to MAX_WIDTH_PRESETS named widths [{ name, width }] (D-041)
   greeting: true,
   clock: true,
 });
@@ -38,7 +40,9 @@ const ENUMS = {
   pinSize: ["s", "m", "l"],
   columns: ["auto", "2", "3", "4"],
 };
-const RANGES = { imageDim: [0, 85], imageBlur: [0, 24], radius: [4, 20] };
+const RANGES = { imageDim: [0, 85], imageBlur: [0, 24], radius: [4, 20], pageWidth: [760, 2400] };
+/** Step of the page-width slider; stored widths are rounded to it. */
+export const PAGE_WIDTH_STEP = 20;
 const HEX = /^#[0-9a-f]{6}$/i;
 
 /** Any input (stored, imported, half-filled) → a complete, valid appearance. Unknown keys are dropped. */
@@ -53,10 +57,59 @@ export function normalizeAppearance(raw) {
     const n = Math.round(Number(src[k]));
     if (src[k] != null && src[k] !== "" && Number.isFinite(n)) out[k] = Math.min(hi, Math.max(lo, n));
   }
+  // Before D-040 the width followed the column count (4 columns: 1320px); keep that look until set.
+  if (src.pageWidth == null || src.pageWidth === "") out.pageWidth = out.columns === "4" ? 1320 : DEFAULT_APPEARANCE.pageWidth;
+  else out.pageWidth = Math.round(out.pageWidth / PAGE_WIDTH_STEP) * PAGE_WIDTH_STEP;
+  out.widthPresets = normalizeWidthPresets(src.widthPresets);
   for (const k of ["pinLabels", "greeting", "clock"]) if (typeof src[k] === "boolean") out[k] = src[k];
   if (typeof src.accent === "string" && (ACCENTS[src.accent] || HEX.test(src.accent))) out.accent = src.accent.toLowerCase();
   return out;
 }
+
+// ---------- width presets (D-041) ----------
+
+export const MAX_WIDTH_PRESETS = 5;
+const PRESET_NAME_MAX = 24;
+const [WIDTH_MIN, WIDTH_MAX] = RANGES.pageWidth;
+
+/** Any width → the nearest allowed one (clamped, on the slider step). */
+export function clampPageWidth(n) {
+  const v = Math.round(Number(n) / PAGE_WIDTH_STEP) * PAGE_WIDTH_STEP;
+  return Number.isFinite(v) ? Math.min(WIDTH_MAX, Math.max(WIDTH_MIN, v)) : DEFAULT_APPEARANCE.pageWidth;
+}
+
+const presetName = (name) => String(name ?? "").trim().slice(0, PRESET_NAME_MAX);
+
+/** Stored or imported presets → at most MAX_WIDTH_PRESETS valid { name, width }, names unique. */
+function normalizeWidthPresets(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const p of raw) {
+    const name = presetName(p?.name);
+    if (!name || !Number.isFinite(Number(p?.width)) || out.some((x) => x.name.toLowerCase() === name.toLowerCase())) continue;
+    out.push({ name, width: clampPageWidth(p.width) });
+    if (out.length === MAX_WIDTH_PRESETS) break;
+  }
+  return out;
+}
+
+/**
+ * Save a named width. The same name (ignoring case) is overwritten in place; a new name is appended.
+ * Throws UserError when the name is empty or all MAX_WIDTH_PRESETS slots are taken.
+ */
+export function saveWidthPreset(presets, name, width) {
+  const clean = presetName(name);
+  if (!clean) throw new UserError("err.presetNameEmpty");
+  const list = normalizeWidthPresets(presets);
+  const i = list.findIndex((p) => p.name.toLowerCase() === clean.toLowerCase());
+  const entry = { name: clean, width: clampPageWidth(width) };
+  if (i >= 0) return list.map((p, k) => (k === i ? { ...entry, name: p.name } : p)); // keep its original spelling
+  if (list.length >= MAX_WIDTH_PRESETS) throw new UserError("err.presetsFull", { n: MAX_WIDTH_PRESETS });
+  return [...list, entry];
+}
+
+export const removeWidthPreset = (presets, name) =>
+  normalizeWidthPresets(presets).filter((p) => p.name.toLowerCase() !== presetName(name).toLowerCase());
 
 export const accentHex = (a) => ACCENTS[a] ?? (HEX.test(a ?? "") ? a.toLowerCase() : ACCENTS.indigo);
 
@@ -87,7 +140,7 @@ export function themeTokens(raw) {
       "--row-pad": compact ? "3px" : "6px",
       "--block-gap": compact ? "18px" : "30px",
       "--task-cols": a.columns === "auto" ? "repeat(auto-fill, minmax(300px, 1fr))" : `repeat(${a.columns}, minmax(0, 1fr))`,
-      "--page-w": a.columns === "4" ? "1320px" : "1100px",
+      "--page-w": `${a.pageWidth}px`,
       "--image-dim": `${a.imageDim}%`,
       "--image-blur": `${a.imageBlur}px`,
     },
