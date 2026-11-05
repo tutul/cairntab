@@ -2,20 +2,26 @@
 // change, because the user may have edited bookmarks since the page rendered.
 
 import { dueItems } from "../lib/archive.js";
-import { allIds, buildModel, findCandidateRoots, flatten, normTitle } from "../lib/model.js";
+import { DEFAULT_LABELS, ROLE_NAMES, allIds, buildModel, findCandidateRoots, flatten, normTitle } from "../lib/model.js";
 import { colorFor, describeTabs, findOpenTab, findTaskGroup, planGroup } from "../lib/tabs.js";
 import { isOpenable, sameUrl } from "../lib/url.js";
+import { UserError } from "../lib/i18n.js";
 import { createStore } from "./store.js";
 
-const ROLE_TITLES = { top: "Top", groups: "Groups", inbox: "Inbox", archive: "Archive" };
-export const TOP_GROUP_TITLE = "Top Pin";
+// The name each role folder gets when CairnTab creates it (the first of ROLE_NAMES).
+const ROLE_TITLES = Object.fromEntries(Object.entries(ROLE_NAMES).map(([role, names]) => [role, names[0]]));
+export const TOP_GROUP_TITLE = "Cairn Pin";
+/** The pins' group was called "Top Pin" before D-033; an open one is still found and renamed. */
+export const LEGACY_TOP_GROUP_TITLE = "Top Pin";
 const GONE_RE = /can't find|no tab with id|no group with id|no window with id|not found|invalid (bookmark|tab|group)/i;
 
 /** A bookmark, tab or group disappeared between render and click. Expected; not a bug. */
-export class Gone extends Error {
+export class Gone extends UserError {
+  /** @param {"bookmark"|"tab"|"task"|"anchor"|"folder"|"parent"} what  a `what.*` dictionary key */
   constructor(what) {
-    super(`${what}已經不存在，可能剛被移動或刪除`);
+    super("toast.gone", { what });
     this.name = "Gone";
+    this.what = what;
   }
 }
 
@@ -23,10 +29,14 @@ export function isGone(err) {
   return err instanceof Gone || GONE_RE.test(String(err?.message ?? err));
 }
 
-export function createActions(chrome, { now = () => Date.now() } = {}) {
+/**
+ * `labels()` gives the display names the model needs (the loose task, an untitled task) in the
+ * page's language; the service worker has no page and keeps the English defaults.
+ */
+export function createActions(chrome, { now = () => Date.now(), labels = () => DEFAULT_LABELS } = {}) {
   const store = createStore(chrome);
 
-  async function getNode(id, what = "書籤") {
+  async function getNode(id, what = "bookmark") {
     try {
       const [node] = await chrome.bookmarks.get(String(id));
       if (!node) throw new Gone(what);
@@ -41,14 +51,14 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
     try {
       return await chrome.tabs.get(id);
     } catch (e) {
-      if (isGone(e)) throw new Gone("分頁");
+      if (isGone(e)) throw new Gone("tab");
       throw e;
     }
   }
 
   async function readModel() {
     const [tree, meta] = await Promise.all([chrome.bookmarks.getTree(), store.read()]);
-    return { tree, meta, model: buildModel(tree, meta.settings) };
+    return { tree, meta, model: buildModel(tree, { rootTitle: meta.settings.rootTitle, labels: labels() }) };
   }
 
   /** Is `id` inside folder `ancestorId` (any depth)? Walks up with fresh reads. */
@@ -114,8 +124,8 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
   async function taskFor(taskId) {
     if (!taskId || taskId === "loose") return null;
     try {
-      const node = await getNode(taskId, "任務資料夾");
-      return node.url ? null : { id: node.id, title: (node.title ?? "").trim() || "（未命名）" };
+      const node = await getNode(taskId, "task");
+      return node.url ? null : { id: node.id, title: (node.title ?? "").trim() || labels().untitled };
     } catch (e) {
       if (e instanceof Gone) return null;
       throw e;
@@ -202,7 +212,7 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
       });
       // Where each open tab is filed, for the "open tabs" list (D-016).
       const places = [
-        ...model.top.map((item) => ({ item, place: { kind: "top", label: "Top" } })),
+        ...model.top.map((item) => ({ item, place: { kind: "top", label: "Pin" } })),
         ...model.tasks.flatMap((task) => task.items.map((item) => ({
           item,
           place: { kind: "task", label: task.title, taskId: task.loose ? null : task.id },
@@ -212,7 +222,13 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
       const openTabs = describeTabs(tabs, places, { selfTabId, extensionOrigin: chrome.runtime.getURL("") });
       const untracked = openTabs.filter((t) => !t.place);
       const topId = model.folders.top?.id;
-      const topGroup = topId ? findTaskGroup({ mapEntry: meta.groupMap[topId], groups, taskTitle: TOP_GROUP_TITLE }) : null;
+      const topGroup = topId
+        ? findTaskGroup({ mapEntry: meta.groupMap[topId], groups, taskTitle: TOP_GROUP_TITLE })
+          ?? findTaskGroup({ mapEntry: null, groups, taskTitle: LEGACY_TOP_GROUP_TITLE })
+        : null;
+      if (topGroup && normTitle(topGroup.title) === normTitle(LEGACY_TOP_GROUP_TITLE)) {
+        await chrome.tabGroups.update(topGroup.id, { title: TOP_GROUP_TITLE }).catch(() => null);
+      }
       model.topGroupId = topGroup?.id ?? null;
       // The "archive" key in `collapsed` means the Archive list is unfolded (it starts folded).
       model.archiveOpen = !!meta.collapsed.archive;
@@ -227,12 +243,13 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
      * Focus the item's tab if open; otherwise open it into a group: the task's group when taskId
      * is given, the "Top Pin" group when group === "top".
      */
-    async openItem(itemId, { selfTabId = null, taskId = null, group = null, background = false } = {}) {
+    async openItem(itemId, { selfTabId = null, taskId = null, group = null, background = false, duplicate = false } = {}) {
       const node = await getNode(itemId);
-      if (!isOpenable(node.url)) throw new Error("這個書籤無法從擴充開啟（例如 bookmarklet）");
+      if (!isOpenable(node.url)) throw new UserError("err.bookmarklet");
       const meta = await store.read();
       const tabs = await chrome.tabs.query({});
-      const existing = findOpenTab({ id: node.id, url: node.url }, tabs);
+      // duplicate: a second copy even when one is open, e.g. to compare two states of a page (D-030).
+      const existing = duplicate ? null : findOpenTab({ id: node.id, url: node.url }, tabs);
       await store.touch([node.id, taskId], now());
       if (existing) {
         if (!background) await focusTab(existing, selfTabId);
@@ -250,10 +267,24 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
       return { focused: false, tabId };
     },
 
+    /** Go to an open tab, giving up this page unless selfTabId is null (D-025). */
+    async switchToTab(tabId, { selfTabId = null } = {}) {
+      await focusTab(await getTab(tabId), selfTabId);
+    },
+
+    /** A new copy of an open tab's page, next to it (search ⌘-Enter, D-030). */
+    async duplicateTab(tabId, { background = false } = {}) {
+      const tab = await getTab(tabId);
+      if (!isOpenable(tab.url)) throw new UserError("err.cantDuplicate");
+      const copy = await chrome.tabs.create({ url: tab.url, windowId: tab.windowId, index: tab.index + 1, active: !background });
+      if (!background) await chrome.windows.update(tab.windowId, { focused: true });
+      return { tabId: copy.id };
+    },
+
     /** Open every page of a task that is not open yet, all in the task's group. */
     async openTask(taskId, { selfTabId = null, background = false } = {}) {
       const task = await taskFor(taskId);
-      if (!task) throw new Gone("任務資料夾");
+      if (!task) throw new Gone("task");
       const [sub] = await chrome.bookmarks.getSubTree(task.id);
       const items = flatten(sub).filter((i) => i.openable);
       const meta = await store.read();
@@ -280,7 +311,7 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
     /** Close the task's tabs. Bookmarks are untouched (tabs are disposable views). */
     async closeTask(taskId) {
       const task = await taskFor(taskId);
-      if (!task) throw new Gone("任務資料夾");
+      if (!task) throw new Gone("task");
       const meta = await store.read();
       const groups = await chrome.tabGroups.query({});
       const group = findTaskGroup({ mapEntry: meta.groupMap[task.id], groups, taskTitle: task.title });
@@ -306,7 +337,7 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
     async fileTab(tabId, taskId) {
       const tab = await getTab(tabId);
       const task = await taskFor(taskId);
-      if (!task) throw new Gone("任務資料夾");
+      if (!task) throw new Gone("task");
       const [sub] = await chrome.bookmarks.getSubTree(task.id);
       let bookmark = flatten(sub).find((i) => sameUrl(i.url, tab.url));
       bookmark ??= await chrome.bookmarks.create({ parentId: task.id, title: tab.title || tab.url, url: tab.url });
@@ -343,8 +374,8 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
           await chrome.tabs.remove(id);
         },
       }[op];
-      if (!one) throw new Error(`不支援的批次動作：${op}`);
-      if (op === "task" && !(await taskFor(taskId))) throw new Gone("任務資料夾");
+      if (!one) throw new UserError("err.badBulk", { op });
+      if (op === "task" && !(await taskFor(taskId))) throw new Gone("task");
       let done = 0;
       let gone = 0;
       for (const id of tabIds) {
@@ -378,7 +409,7 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
      */
     async createTask(title, { tabId = null } = {}) {
       const name = String(title ?? "").trim();
-      if (!name) throw new Error("任務名稱不能是空的");
+      if (!name) throw new UserError("err.taskNameEmpty");
       if (tabId != null) await getTab(tabId); // fail before creating anything
       const { model, meta } = await readModel();
       const groupsId = await ensureRole("groups", model, meta.settings);
@@ -395,17 +426,17 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
      */
     async moveItem(itemId, target) {
       const node = await getNode(itemId);
-      if (!node.url) throw new Error("只能移動網頁書籤，資料夾請在書籤管理員裡整理");
+      if (!node.url) throw new UserError("err.onlyPages");
       let folderId;
       if (target?.taskId) {
         const task = await taskFor(target.taskId);
-        if (!task) throw new Gone("任務資料夾");
+        if (!task) throw new Gone("task");
         folderId = task.id;
       } else if (target?.role === "top" || target?.role === "inbox") {
         const { model, meta } = await readModel();
         folderId = await ensureRole(target.role, model, meta.settings);
       } else {
-        throw new Error(`不支援的目的地：${JSON.stringify(target)}`);
+        throw new UserError("err.badTarget", { target: JSON.stringify(target) });
       }
       if (node.parentId === folderId) return { moved: false };
       await chrome.bookmarks.move(node.id, { parentId: folderId });
@@ -420,8 +451,8 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
      */
     async placeItem(itemId, anchorId, { after = false } = {}) {
       const node = await getNode(itemId);
-      if (!node.url) throw new Error("只能移動網頁書籤，資料夾請在書籤管理員裡整理");
-      const anchor = await getNode(anchorId, "目標位置的書籤");
+      if (!node.url) throw new UserError("err.onlyPages");
+      const anchor = await getNode(anchorId, "anchor");
       if (anchor.id === node.id) return { moved: false };
       // Chrome reads index as a position before removal, so "after the anchor" is anchor.index + 1.
       const index = anchor.index + (after ? 1 : 0);
@@ -441,14 +472,14 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
      * contains Groups — moving those would tear the structure apart.
      */
     async adoptFolder(folderId) {
-      const node = await getNode(folderId, "資料夾");
-      if (node.url) throw new Error("這不是資料夾");
+      const node = await getNode(folderId, "folder");
+      if (node.url) throw new UserError("err.notFolder");
       const { model, meta } = await readModel();
       const protectedIds = new Set([model.root?.id, ...Object.values(model.folders).map((f) => f?.id)]);
-      const parent = node.parentId ? await getNode(node.parentId, "上層資料夾") : null;
-      if (!parent?.parentId || protectedIds.has(node.id)) throw new Error("這個資料夾不能變成任務");
+      const parent = node.parentId ? await getNode(node.parentId, "parent") : null;
+      if (!parent?.parentId || protectedIds.has(node.id)) throw new UserError("err.cantAdopt");
       const groupsId = await ensureRole("groups", model, meta.settings);
-      if (await isInside(groupsId, node.id)) throw new Error("這個資料夾包含 Groups，不能變成任務");
+      if (await isInside(groupsId, node.id)) throw new UserError("err.containsGroups");
       if (node.parentId === groupsId) return { moved: false };
       await chrome.bookmarks.move(node.id, { parentId: groupsId });
       return { moved: true };
@@ -470,7 +501,7 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
     /** Rename a URL bookmark (what the page shows as its title). Empty names are refused. */
     async renameItem(itemId, title) {
       const name = String(title ?? "").trim();
-      if (!name) throw new Error("名稱不能是空的");
+      if (!name) throw new UserError("err.nameEmpty");
       const node = await getNode(itemId);
       if (node.title === name) return { changed: false };
       await chrome.bookmarks.update(node.id, { title: name });
@@ -483,9 +514,9 @@ export function createActions(chrome, { now = () => Date.now() } = {}) {
      */
     async renameTask(taskId, title) {
       const name = String(title ?? "").trim();
-      if (!name) throw new Error("任務名稱不能是空的");
-      const node = await getNode(taskId, "任務資料夾");
-      if (node.url) throw new Error("這不是任務資料夾");
+      if (!name) throw new UserError("err.taskNameEmpty");
+      const node = await getNode(taskId, "task");
+      if (node.url) throw new UserError("err.notTask");
       if (node.title === name) return { changed: false };
       const meta = await store.read();
       const group = findTaskGroup({

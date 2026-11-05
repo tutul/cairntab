@@ -9,11 +9,16 @@ import { join } from "node:path";
 
 const CHROME = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const BASE = "http://127.0.0.1:8770/dev/preview.html?demo";
-const SHOTS = [
+// Each shot in English (README.md) and Traditional Chinese (README-zh.md, "-zh" suffix).
+const VIEWS = [
   ["overview", "&theme=light"],
   ["dark", "&theme=dark&accent=teal"],
   ["settings", "&theme=light&panel=settings"],
   ["open-tabs", "&theme=light&bg=tint&accent=coral&panel=tabs"],
+];
+const SHOTS = [
+  ...VIEWS.map(([name, q]) => [name, `${q}&lang=en`]),
+  ...VIEWS.map(([name, q]) => [`${name}-zh`, `${q}&lang=zh-Hant`]),
 ];
 const PORT = 9333;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -45,7 +50,7 @@ try {
 
   await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
   // Warm-up load: the very first navigation in a fresh profile reports ready before fonts and modules
-  // settle, which produced a blank "載入中" shot.
+  // settle, which produced a blank "loading" shot.
   await send("Page.navigate", { url: BASE });
   await sleep(2500);
   for (const [name, query] of SHOTS) {

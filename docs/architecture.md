@@ -5,7 +5,7 @@
 ```
 Bookmarks bar
 └─ CairnTab                 root; title configurable (default "CairnTab"), matched case-insensitively
-   ├─ Top                   icon row. URLs anywhere below are flattened.
+   ├─ Pin  (or Top)         icon row. URLs anywhere below are flattened.
    ├─ Groups
    │  ├─ <task>             one task per direct subfolder; URLs below it are flattened
    │  └─ (loose URLs)       shown as task "未分組"; open without a tab group
@@ -50,8 +50,8 @@ URL only: EXACT > PAGE (query and locale segment ignored) > INSIDE > SITE (front
 so a github.com pin cannot swallow every GitHub tab.
 
 **Open pin** If a tab matches the URL (see Tab matching) → focus it (and its window),
-wherever it is. Otherwise open it and place it in the "Top Pin" group, using the same placement as
-a task with the Top folder's id as the `groupMap` key (D-010).
+wherever it is. Otherwise open it and place it in the "Cairn Pin" group, using the same placement as
+a task with the Pin folder's id as the `groupMap` key (D-010).
 
 **Open task page** Re-read the task folder. If the page is already open → focus it. Otherwise
 create the tab, then place it with `lib/groups.planGroup`:
@@ -81,6 +81,25 @@ item is not overwritten by its parent folder rows.
 **Archive sweep** In the service worker on startup and on a daily alarm, and on each render:
 `lib/archive.dueItems(inbox, archiveDays, now)` → for each, re-read the node, confirm it is still in
 Inbox, move to `Archive`. `archiveDays = 0` disables it.
+
+**Search** (D-030) `lib/search.searchEntries(model, openTabs)` → one entry per openable thing (Top,
+task pages, Inbox, unfiled tabs; not Archive), then `search(entries, query)` → ranked results with
+highlight ranges. Recomputed from `state` on each keystroke and each render; nothing is indexed or
+stored. Opens go through `openItem` (with `duplicate` for a second copy), `switchToTab` and
+`duplicateTab`.
+
+**Language** (D-033) `lib/i18n.createT(lang)` over `extension/locales/*.js`; `settings.language`
+("auto" | "zh-Hant" | "en") resolved against `navigator.languages`. Static HTML carries `data-i18n`
+keys filled by `applyStaticText()`; everything else renders through `t()`, so switching re-renders
+in place. Actions throw `UserError(key, params)` and `Gone(what)`; the page translates them. The
+model's own labels (the loose task, an untitled task) come from `createActions({ labels })`.
+Manifest name/description, the toolbar tooltip and the toolbar menu use Chrome's `_locales/`
+(browser language only; they cannot follow the in-page setting).
+
+**Drawers** (D-036) Two fixed slots, `#slotLeft` and `#slotRight`. The three views
+(`#bookmarksView`, `#tabsView`, `#settings`) are moved into a slot per `settings.drawers`
+(cached in localStorage as `cairntab.drawers` for the first paint). A slot shows one view; settings
+cover their slot while open. Open bookmarks/tabs are remembered in `cairntab.panels.open`.
 
 ## Why new tab, not side panel
 

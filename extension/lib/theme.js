@@ -1,6 +1,8 @@
 // Appearance (D-022): the stored object → CSS custom properties. Pure: no chrome.*, no DOM, so the
 // page only has to copy the result onto :root, and boot.js can replay a cached copy before paint.
 
+import { UserError } from "./i18n.js";
+
 export const ACCENTS = Object.freeze({
   indigo: "#5b5bd6",
   blue: "#2f6fdf",
@@ -92,13 +94,13 @@ export function themeTokens(raw) {
   };
 }
 
-/** Header greeting by local hour. */
+/** Header greeting by local hour, as a dictionary key. */
 export function greetingFor(hour) {
-  if (hour >= 5 && hour < 11) return "早安";
-  if (hour >= 11 && hour < 14) return "午安";
-  if (hour >= 14 && hour < 18) return "下午好";
-  if (hour >= 18 && hour < 23) return "晚上好";
-  return "夜深了";
+  if (hour >= 5 && hour < 11) return "greet.morning";
+  if (hour >= 11 && hour < 14) return "greet.noon";
+  if (hour >= 14 && hour < 18) return "greet.afternoon";
+  if (hour >= 18 && hour < 23) return "greet.evening";
+  return "greet.night";
 }
 
 /**
@@ -131,8 +133,8 @@ export function importAppearance(text) {
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error("不是有效的 JSON");
+    throw new UserError("err.importJson");
   }
-  if (parsed?.cairntab !== "appearance") throw new Error("不是 CairnTab 的外觀檔");
+  if (parsed?.cairntab !== "appearance") throw new UserError("err.importNotCairn");
   return normalizeAppearance(parsed);
 }

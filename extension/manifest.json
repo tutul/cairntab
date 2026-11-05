@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "CairnTab",
+  "name": "__MSG_extName__",
   "short_name": "CairnTab",
   "version": "0.1.0",
-  "description": "Tasks stay, tabs come and go. A new tab page that turns one bookmarks folder into pins, tasks and an inbox, so reminder tabs stop eating memory.",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
   "homepage_url": "https://github.com/tutul",
   "icons": {
     "16": "icons/icon-16.png",
@@ -12,7 +13,7 @@
     "128": "icons/icon-128.png"
   },
   "action": {
-    "default_title": "開啟 CairnTab（新分頁）",
+    "default_title": "__MSG_actionTitle__",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png"

@@ -2,6 +2,7 @@
 // (bookmarks are the source of truth; see docs/conventions.md).
 
 import { INBOX_SORTS } from "../lib/archive.js";
+import { LANGUAGE_SETTINGS } from "../lib/i18n.js";
 import { normalizeAppearance } from "../lib/theme.js";
 
 // openMode: what a plain click does — "switch" goes to the page (this tab becomes it), "stay" opens it
@@ -10,8 +11,19 @@ import { normalizeAppearance } from "../lib/theme.js";
 // or stays where it is and the page opens in a new tab (false) (D-025).
 // inboxSort: "expiring" (closest to archiving first), "newest" (latest first) or "manual" (bookmark
 // order, drag to reorder) (D-027).
+// language: "auto" (follow the browser), "zh-Hant" or "en" (D-033).
+// drawers: which side each drawer slides in from (D-036).
+export const DEFAULT_DRAWERS = Object.freeze({ tabs: "left", bookmarks: "right", settings: "right" });
+const SIDES = ["left", "right"];
+
+/** Any stored value → a complete { tabs, bookmarks, settings } of "left" | "right". */
+export function normalizeDrawers(raw) {
+  const src = raw && typeof raw === "object" ? raw : {};
+  return Object.fromEntries(Object.entries(DEFAULT_DRAWERS).map(([k, v]) => [k, SIDES.includes(src[k]) ? src[k] : v]));
+}
+
 export const DEFAULT_SETTINGS = Object.freeze({
-  rootTitle: "CairnTab", archiveDays: 30, openMode: "switch", closeOnSwitch: true, inboxSort: "expiring",
+  rootTitle: "CairnTab", archiveDays: 30, openMode: "switch", closeOnSwitch: true, inboxSort: "expiring", language: "auto", drawers: DEFAULT_DRAWERS,
 });
 const KEYS = ["settings", "lastOpened", "groupMap", "collapsed", "inboxSince", "iconPage"];
 
@@ -21,7 +33,7 @@ export function createStore(chrome) {
   async function read() {
     const got = await local.get(KEYS);
     return {
-      settings: { ...DEFAULT_SETTINGS, ...(got.settings ?? {}) },
+      settings: { ...DEFAULT_SETTINGS, ...(got.settings ?? {}), drawers: normalizeDrawers(got.settings?.drawers) },
       lastOpened: got.lastOpened ?? {},
       groupMap: got.groupMap ?? {},
       collapsed: got.collapsed ?? {},
@@ -49,6 +61,8 @@ export function createStore(chrome) {
         if (!["switch", "stay"].includes(next.openMode)) next.openMode = DEFAULT_SETTINGS.openMode;
         next.closeOnSwitch = next.closeOnSwitch !== false;
         if (!INBOX_SORTS.includes(next.inboxSort)) next.inboxSort = DEFAULT_SETTINGS.inboxSort;
+        if (!LANGUAGE_SETTINGS.includes(next.language)) next.language = DEFAULT_SETTINGS.language;
+        next.drawers = normalizeDrawers({ ...(s?.drawers ?? {}), ...(patch.drawers ?? {}) });
         return next;
       });
     },

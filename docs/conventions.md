@@ -17,7 +17,7 @@ Rules meant to hold for the life of the project. Current state and todos live in
 - **Re-read before every write.** Ids held by the UI are hints. Each action fetches the node it is
   about to change and verifies parent/url first; a missing node is a normal outcome ("it was
   removed meanwhile"), reported as a quiet toast and a re-render, never an exception in the console.
-- **Identify folders by role, not by id or position.** `Top`/`Groups`/`Inbox`/`Archive` are found
+- **Identify folders by role, not by id or position.** `Pin` (or `Top`)/`Groups`/`Inbox`/`Archive` are found
   by case-insensitive title under the root folder each time the tree is read. Ids change when a
   folder is deleted and recreated, and positions change whenever the user drags.
 - **Unknown structure is tolerated, not repaired.** Extra folders, nested folders, loose URLs,
@@ -48,6 +48,9 @@ Rules meant to hold for the life of the project. Current state and todos live in
 - Every destructive-looking action (close task tabs, archive) is reversible from the page or the
   bookmark manager, so no confirm dialogs.
 - Light and dark from `prefers-color-scheme`.
+- Text: every fixed string is a key in `extension/locales/{zh-Hant,en}.js`; plurals and word order
+  are functions in the dictionary, dates go through `Intl`. Folder names stay as they are in both
+  languages. `make check` rejects CJK text outside the dictionaries (D-033).
 
 ## Docs and commits
 

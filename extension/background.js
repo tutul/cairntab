@@ -23,7 +23,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create(ALARM, { periodInMinutes: 360 });
   // Menu items persist across restarts; recreate on install/update so there is never a duplicate id.
   chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({ id: MENU_REPO, title: "在 GitHub 查看 CairnTab", contexts: ["action"] });
+    chrome.contextMenus.create({ id: MENU_REPO, title: chrome.i18n.getMessage("menuRepo") || "View CairnTab on GitHub", contexts: ["action"] });
   });
   sweep();
 });

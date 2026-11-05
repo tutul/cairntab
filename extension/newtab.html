@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,16 +9,23 @@
 <script src="boot.js"></script>
 </head>
 <body>
-<aside class="drawer" id="drawer" aria-label="所有書籤" inert>
+<!-- UI text comes from extension/locales via data-i18n (text), data-i18n-attr ("attr:key,…") and
+     data-i18n-tip (header buttons), filled by newtab.js (D-033). -->
+<!-- Two drawer slots, left and right (D-036). The three views below (bookmarks, open tabs,
+     settings) are moved into a slot by newtab.js according to settings.drawers. -->
+<aside class="drawer side" id="slotLeft" inert></aside>
+<aside class="drawer drawer-right side" id="slotRight" inert></aside>
+
+<section class="side-view" id="bookmarksView" data-i18n-attr="aria-label:drawer.aria" hidden>
   <div class="drawer-head">
-    <strong>書籤</strong>
+    <strong data-i18n="drawer.title"></strong>
     <span class="spacer"></span>
-    <button class="btn small ghost" id="managerBtn" title="在 Chrome 書籤管理員開啟（可刪除、重新命名）">管理員</button>
-    <button class="icon-btn" id="drawerClose" title="關閉">×</button>
+    <button class="btn small ghost" id="managerBtn" data-i18n="drawer.manager" data-i18n-attr="title:drawer.managerTitle"></button>
+    <button class="icon-btn" id="drawerClose" data-i18n-attr="title:ui.close,aria-label:ui.close">×</button>
   </div>
-  <p class="hint drawer-hint">把書籤拖到右邊的 Top、任務或 Inbox；把資料夾拖到「＋ 新任務」就變成任務。</p>
+  <p class="hint drawer-hint" data-i18n="drawer.hint"></p>
   <div class="drawer-tree" id="drawerTree"></div>
-</aside>
+</section>
 <header class="bar">
   <img class="mark" src="icons/icon-48.png" alt="">
   <div class="hello">
@@ -27,49 +34,99 @@
   </div>
   <span class="spacer"></span>
   <div class="tools">
-    <button class="icon-btn tip" id="bookmarksBtn" aria-expanded="false" aria-controls="drawer" aria-label="書籤" data-tip="書籤 (B)" aria-keyshortcuts="B"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4.5L5 21V4.5a1 1 0 0 1 1-1z"/></svg></button>
-    <button class="icon-btn tip" id="tabsBtn" aria-expanded="false" aria-controls="tabsView" aria-label="開著的分頁" data-tip="開著的分頁 (T)" aria-keyshortcuts="T"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h11a3 3 0 0 1 3 3v10"/></svg></button>
-    <button class="icon-btn tip" id="refreshBtn" aria-label="重新整理" data-tip="重新整理 (R)" aria-keyshortcuts="R"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20.5 4v4.5H16"/></svg></button>
-    <button class="icon-btn tip" id="settingsBtn" aria-expanded="false" aria-controls="settings" aria-label="設定" data-tip="設定 (S)" aria-keyshortcuts="S"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
+    <button class="icon-btn tip" id="tabsBtn" aria-expanded="false" aria-controls="tabsView" data-i18n-tip="hdr.tabs" aria-keyshortcuts="T"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h11a3 3 0 0 1 3 3v10"/></svg></button>
+    <button class="icon-btn tip" id="bookmarksBtn" aria-expanded="false" aria-controls="bookmarksView" data-i18n-tip="hdr.bookmarks" aria-keyshortcuts="B"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4.5L5 21V4.5a1 1 0 0 1 1-1z"/></svg></button>
+    <button class="icon-btn tip" id="refreshBtn" data-i18n-tip="hdr.refresh" aria-keyshortcuts="R"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20.5 4v4.5H16"/></svg></button>
+    <button class="icon-btn tip" id="settingsBtn" aria-expanded="false" aria-controls="settings" data-i18n-tip="hdr.settings" aria-keyshortcuts="S"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.20 10.27 L21.51 10.72 L21.51 13.28 L19.20 13.73 L18.31 15.87 L19.63 17.82 L17.82 19.63 L15.87 18.31 L13.73 19.20 L13.28 21.51 L10.72 21.51 L10.27 19.20 L8.13 18.31 L6.18 19.63 L4.37 17.82 L5.69 15.87 L4.80 13.73 L2.49 13.28 L2.49 10.72 L4.80 10.27 L5.69 8.13 L4.37 6.18 L6.18 4.37 L8.13 5.69 L10.27 4.80 L10.72 2.49 L13.28 2.49 L13.73 4.80 L15.87 5.69 L17.82 4.37 L19.63 6.18 L18.31 8.13Z"/><circle cx="12" cy="12" r="3"/></svg></button>
   </div>
 </header>
 
-<!-- Right panel: open tabs by default; settings swap in while open (D-018). -->
-<aside class="drawer drawer-right side" id="side" inert>
-<section class="side-view" id="tabsView" aria-label="開著的分頁">
+<div class="search" role="search">
+  <div class="search-box">
+    <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+    <input id="q" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="results"
+      data-i18n-attr="placeholder:search.placeholder,aria-label:search.aria" aria-keyshortcuts="/" autocomplete="off" spellcheck="false">
+    <kbd class="search-key" aria-hidden="true">/</kbd>
+  </div>
+  <div class="results" id="results" role="listbox" data-i18n-attr="aria-label:search.results" hidden></div>
+</div>
+
+<section class="side-view" id="tabsView" data-i18n-attr="aria-label:tabs.title" hidden>
   <div class="drawer-head">
-    <strong>開著的分頁</strong>
+    <strong data-i18n="tabs.title"></strong>
     <span class="count" id="tabsCount"></span>
     <span class="spacer"></span>
-    <button class="icon-btn" id="tabsClose" aria-label="收起">×</button>
+    <button class="icon-btn" id="tabsClose" data-i18n-attr="aria-label:ui.hide">×</button>
   </div>
   <div class="side-scroll" id="tabsBody"></div>
 </section>
-<section class="side-view settings" id="settings" aria-label="設定" hidden>
+<section class="side-view settings" id="settings" data-i18n-attr="aria-label:set.title" hidden>
   <div class="drawer-head">
-    <strong>設定</strong>
+    <strong data-i18n="set.title"></strong>
     <span class="spacer"></span>
-    <button class="icon-btn" id="settingsClose" aria-label="關閉設定">×</button>
+    <button class="icon-btn" id="settingsClose" data-i18n-attr="aria-label:set.closeAria">×</button>
   </div>
   <div class="settings-body">
+    <section class="sgroup" aria-labelledby="sgLang">
+      <h3 id="sgLang" data-i18n="set.general"></h3>
+      <div class="scard">
+        <div class="srow">
+          <div class="stext"><span class="slabel" data-i18n="set.language"></span></div>
+          <div class="seg" role="group" data-i18n-attr="aria-label:set.language" id="language">
+            <button type="button" data-lang="auto" data-i18n="lang.auto"></button>
+            <button type="button" data-lang="zh-Hant" lang="zh-Hant" data-i18n="lang.zh-Hant"></button>
+            <button type="button" data-lang="en" lang="en" data-i18n="lang.en"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sgroup" aria-labelledby="sgDrawers">
+      <h3 id="sgDrawers" data-i18n="set.drawers"></h3>
+      <div class="scard" id="drawerSides">
+        <div class="srow">
+          <div class="stext"><span class="slabel" data-i18n="hdr.tabs"></span></div>
+          <div class="seg" role="group" data-i18n-attr="aria-label:hdr.tabs" data-view="tabs">
+            <button type="button" data-side="left" data-i18n="side.left"></button>
+            <button type="button" data-side="right" data-i18n="side.right"></button>
+          </div>
+        </div>
+        <div class="srow">
+          <div class="stext"><span class="slabel" data-i18n="hdr.bookmarks"></span></div>
+          <div class="seg" role="group" data-i18n-attr="aria-label:hdr.bookmarks" data-view="bookmarks">
+            <button type="button" data-side="left" data-i18n="side.left"></button>
+            <button type="button" data-side="right" data-i18n="side.right"></button>
+          </div>
+        </div>
+        <div class="srow">
+          <div class="stext"><span class="slabel" data-i18n="hdr.settings"></span></div>
+          <div class="seg" role="group" data-i18n-attr="aria-label:hdr.settings" data-view="settings">
+            <button type="button" data-side="left" data-i18n="side.left"></button>
+            <button type="button" data-side="right" data-i18n="side.right"></button>
+          </div>
+        </div>
+      </div>
+      <p class="shint sfoot" data-i18n="set.drawersHint"></p>
+    </section>
+
     <div id="appearance" class="appearance"></div>
 
     <section class="sgroup" aria-labelledby="sgOpen">
-      <h3 id="sgOpen">點擊網頁時</h3>
+      <h3 id="sgOpen" data-i18n="set.clickGroup"></h3>
       <div class="scard">
         <div class="srow">
           <div class="stext">
-            <span class="slabel">開啟方式</span>
+            <span class="slabel" data-i18n="set.openMode"></span>
             <p class="shint" id="openModeHint"></p>
           </div>
-          <div class="seg" role="group" aria-label="開啟方式" id="openMode">
-            <button type="button" data-mode="switch">切過去</button>
-            <button type="button" data-mode="stay">留在這頁</button>
+          <div class="seg" role="group" data-i18n-attr="aria-label:set.openMode" id="openMode">
+            <button type="button" data-mode="switch" data-i18n="openMode.switch"></button>
+            <button type="button" data-mode="stay" data-i18n="openMode.stay"></button>
           </div>
         </div>
         <div class="srow">
           <div class="stext">
-            <label class="slabel" for="closeOnSwitch">切過去時關掉 CairnTab</label>
+            <label class="slabel" for="closeOnSwitch" data-i18n="set.closeOnSwitch"></label>
             <p class="shint" id="closeOnSwitchHint"></p>
           </div>
           <input type="checkbox" class="switch" role="switch" id="closeOnSwitch">
@@ -78,52 +135,47 @@
     </section>
 
     <section class="sgroup" aria-labelledby="sgFolder">
-      <h3 id="sgFolder">資料夾與 Inbox</h3>
+      <h3 id="sgFolder" data-i18n="set.folderGroup"></h3>
       <div class="scard">
         <div class="srow stack">
-          <label class="slabel" for="rootTitle">書籤根資料夾</label>
+          <label class="slabel" for="rootTitle" data-i18n="set.root"></label>
           <input id="rootTitle" type="text" autocomplete="off" spellcheck="false">
-          <p class="shint">CairnTab 讀取的資料夾名稱，預設 CairnTab，放在書籤列，不分大小寫。</p>
+          <p class="shint" data-i18n="set.rootHint"></p>
         </div>
         <div class="srow">
           <div class="stext">
-            <label class="slabel" for="archiveDays">Inbox 自動封存</label>
-            <p class="shint">進 Inbox 幾天後移到 Archive；0 = 不封存</p>
+            <label class="slabel" for="archiveDays" data-i18n="set.archiveDays"></label>
+            <p class="shint" data-i18n="set.archiveDaysHint"></p>
           </div>
-          <span class="unit-input"><input id="archiveDays" type="number" min="0" step="1"><span>天</span></span>
+          <span class="unit-input"><input id="archiveDays" type="number" min="0" step="1"><span data-i18n="unit.days"></span></span>
         </div>
         <div class="srow">
           <div class="stext">
-            <span class="slabel">Inbox 排序</span>
+            <span class="slabel" data-i18n="set.inboxSort"></span>
             <p class="shint" id="inboxSortHint"></p>
           </div>
-          <div class="seg" role="group" aria-label="Inbox 排序" id="inboxSort">
-            <button type="button" data-sort="expiring">快到期</button>
-            <button type="button" data-sort="newest">最新</button>
-            <button type="button" data-sort="manual">手動</button>
+          <div class="seg" role="group" data-i18n-attr="aria-label:set.inboxSort" id="inboxSort">
+            <button type="button" data-sort="expiring" data-i18n="sort.expiring"></button>
+            <button type="button" data-sort="newest" data-i18n="sort.newest"></button>
+            <button type="button" data-sort="manual" data-i18n="sort.manual"></button>
           </div>
         </div>
         <div class="srow">
           <div class="stext">
-            <span class="slabel">資料夾結構</span>
+            <span class="slabel" data-i18n="set.structure"></span>
             <p class="shint" id="structureInfo"></p>
           </div>
-          <span class="status" id="structureOk" hidden>完整</span>
-          <button class="btn small" id="ensure" type="button">建立缺少的</button>
+          <span class="status" id="structureOk" data-i18n="structure.ok" hidden></span>
+          <button class="btn small" id="ensure" type="button" data-i18n="structure.create"></button>
         </div>
       </div>
     </section>
 
     <section class="sgroup" aria-labelledby="sgUsage">
-      <h3 id="sgUsage">使用方式</h3>
+      <h3 id="sgUsage" data-i18n="set.usage"></h3>
       <div class="scard usage">
-        <p class="shint">CairnTab 只讀寫書籤列上的一個資料夾（預設 <code>CairnTab</code>），底下四個子資料夾。也可以直接在 Chrome 書籤管理員裡增減、搬動。</p>
-        <dl>
-          <dt>Top</dt><dd>常用網站，最上方的圖示列。已開就切過去，沒開就開進「Top Pin」分頁群組。</dd>
-          <dt>Groups</dt><dd>每個子資料夾是一個任務。點一頁就開進同名的分頁群組，關掉分頁不影響書籤。</dd>
-          <dt>Inbox</dt><dd>之後再看的頁面。到了上面設定的天數會自動移到 Archive。</dd>
-          <dt>Archive</dt><dd>按 Archive 或過期的項目。CairnTab 不會刪除任何書籤。</dd>
-        </dl>
+        <p class="shint" data-i18n="usage.lead"></p>
+        <dl id="usageRoles"></dl>
       </div>
     </section>
 
@@ -133,10 +185,9 @@
     </footer>
   </div>
 </section>
-</aside>
 
 <main id="app">
-  <p class="loading">載入中…</p>
+  <p class="loading" data-i18n="ui.loading"></p>
 </main>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>

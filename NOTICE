@@ -5,6 +5,9 @@ CairnTab was created by TuTu. The concept — a new tab page that turns one book
 pins, tasks that open into their own tab groups, and an inbox that archives itself — and this
 implementation originate from TuTu's work, first published in 2026.
 
+Chinese Traditional/Simplified character data (extension/lib/hanzi-data.js) is derived from OpenCC
+(https://github.com/BYVoid/OpenCC), Copyright BYVoid, licensed under the Apache License 2.0.
+
 This product is licensed under the Apache License, Version 2.0 (see LICENSE). Under section 4(d) of
 that license, any redistribution of this work or of a derivative work must include a readable copy
 of this NOTICE, for example in the documentation or an "about" screen shown to users.

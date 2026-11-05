@@ -282,6 +282,7 @@ export function createFakeChrome({ tree, tabs = [], groups = [], currentWindowId
         return { id, ...props };
       },
     },
+    i18n: { getMessage: () => "" },
     runtime: {
       id: "fake",
       getURL: (p = "") => `fake-extension://fake/${String(p).replace(/^\//, "")}`,

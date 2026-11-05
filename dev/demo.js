@@ -19,7 +19,7 @@ export function demoTree(now = Date.now()) {
             { title: "Hacker News", url: "https://news.ycombinator.com/" },
           ] },
           { title: "CairnTab", children: [
-            { title: "Top", children: [
+            { title: "Pin", children: [
               { title: "GitHub", url: "https://github.com/" },
               { title: "Calendar", url: "https://calendar.google.com/" },
               { title: "Figma", url: "https://www.figma.com/" },

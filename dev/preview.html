@@ -24,6 +24,7 @@
   //   ?empty                no folders at all (welcome screen)
   //   &theme=dark|light, &accent=<name|#hex>, &bg=plain|tint, &density=compact   preset appearance
   //   &panel=settings|tabs|bookmarks   open that drawer after load
+  //   &lang=zh-Hant|en       UI language (default: follow the browser, as in the extension)
   const q = new URLSearchParams(location.search);
 
   // ?bare: a root folder that holds only the user's own items and no role folders yet.
@@ -60,6 +61,7 @@
 
   const look = Object.fromEntries(["theme", "accent", "bg", "density"].filter((k) => q.has(k)).map((k) => [k === "bg" ? "background" : k, q.get(k)]));
   if (Object.keys(look).length) await chrome.storage.local.set({ appearance: look });
+  if (q.has("lang")) await chrome.storage.local.set({ settings: { language: q.get("lang") } });
   if (q.has("demo")) try { localStorage.clear(); } catch {} // screenshots start from a clean drawer/theme state
 
   const html = await (await fetch("../extension/newtab.html")).text();

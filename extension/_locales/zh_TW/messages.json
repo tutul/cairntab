@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "CairnTab"
+  },
+  "extDescription": {
+    "message": "任務留著，分頁來去。把一個書籤資料夾變成釘選、任務和 Inbox 的新分頁，提醒用的分頁不再佔記憶體。"
+  },
+  "actionTitle": {
+    "message": "開啟 CairnTab（新分頁）"
+  },
+  "menuRepo": {
+    "message": "在 GitHub 查看 CairnTab"
+  }
+}

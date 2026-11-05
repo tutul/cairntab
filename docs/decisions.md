@@ -225,3 +225,104 @@ and any folder that already looks like a root under another name (`findCandidate
 role-named children) with a one-click "改用" that only sets `rootTitle`. Rejected: silently falling
 back to "Pin" when "CairnTab" is missing — invisible magic, and it would pick up an unrelated folder
 that happens to be called Pin.
+
+**D-030 Search bar over CairnTab and open tabs.** 2026-11-05.
+The address bar already searches all bookmarks and history; what it cannot do is search only what
+CairnTab holds plus the tabs open right now. A search bar under the header does that, with results in
+a dropdown (not by filtering the board, which would move everything around while typing).
+- Scope: Top, every task's pages, Inbox, and open tabs not filed anywhere. Archive is left out — it is
+  the place for things you are done with. A bookmark that is open is one result marked open; its tab
+  is not listed again.
+- Query: whitespace (and `*`) split it into tokens; each token must be a substring of the title or of
+  the URL, in any order. An ordered glob (`a*b`) was the first idea; rejected because it fails when the
+  pieces are typed in the other order or one is in the title and the other in the URL.
+- Chinese: comparison is on NFKC + lower-case text per code point (full-width letters and the
+  ideographic space fold to ASCII), and URLs are percent-decoded first, so Chinese titles and Chinese
+  URL paths match as typed. No word segmentation is needed for substring matching. Highlight ranges
+  are mapped back to the original string, since folding can change lengths. Traditional/Simplified:
+  see D-031.
+- Input methods: nothing filters while `isComposing`; the list updates on `compositionend`. Enter with
+  `isComposing` or keyCode 229 (the Enter that confirms a word) is ignored.
+- Ranking: title starts with the first token > every token in the title > some token only in the URL;
+  ties go to open things, then most recently opened.
+- Opening: Enter follows the click settings (D-024/D-025), except that something already open is
+  switched to. ⌘/Ctrl opens a second copy in the background — the "already open, switch to it" rule
+  would otherwise make comparing two states of a page impossible — ⌘⇧ a second copy in front, and
+  middle-click a second copy in the background. This is deliberately not the board's ⌘ meaning
+  ("the other click mode"): in a search list the useful alternative is a fresh copy.
+- Focus: Chrome keeps keyboard focus in the address bar on a new tab page and the page cannot take it,
+  so the field is not auto-focused; **/** focuses it once the page has been clicked.
+
+**D-031 Search folds Traditional and Simplified Chinese together.** 2026-11-05. Amends D-030.
+Bookmarks and tabs mix both scripts (a Simplified page title in a Traditional setup, or the other way
+round), and the query should find either. Each code point is mapped Traditional → Simplified with
+OpenCC's character table (TSCharacters, default form only; 3,221 pairs, ~20 KB, generated into
+`lib/hanzi-data.js` by `scripts/gen-hanzi.mjs`), on both the query and the text. The folded form is
+only compared, never shown; highlights still mark the original characters.
+Why fold to Simplified, although the UI and most users here are Traditional: the mapping is
+many-to-one in that direction (發／髮 → 发, 臺／台 → 台), so it is a plain lookup. Folding to Traditional
+is one-to-many (发 → 發 or 髮) and would need phrase context to pick, which is what OpenCC's phrase
+dictionaries are for and is out of scope. The cost is a few extra matches where two Traditional
+characters share a Simplified one (searching 「髮」 also finds 「發」); for search that is acceptable.
+Character level only: regional vocabulary (软件／軟體) is not converted. OpenCC is Apache-2.0, so its
+attribution is in NOTICE.
+
+**D-032 "移到…" on Inbox rows.** 2026-11-05.
+Filing an Inbox item into a task meant dragging it up past a long Inbox, which scrolls while dragging
+and is unreliable. Inbox rows get a hover menu next to Archive: Top or any task, using the existing
+`moveItem`. Task rows do not get it: task cards are narrow and the hidden menu still takes the width
+the titles need; between tasks, cards sit side by side and dragging is short.
+
+**D-033 English UI; all UI text in dictionaries.** 2026-11-05.
+The UI mixed Chinese labels with English ones (Move to Inbox, Archive). Every fixed string is now a
+key in `extension/locales/zh-Hant.js` and `en.js` (plain strings with `{param}`, or functions for
+plurals and word order), read through `lib/i18n.createT`. Setting `language`: "auto" (default — any
+Chinese browser language gets Chinese, everything else English), "zh-Hant" or "en"; switching
+re-renders in place, and the resolved language is cached in localStorage for the next first paint.
+- Own dictionaries, not `chrome.i18n`: Chrome's API only follows the browser language and cannot be
+  switched from the page. `_locales/` is still used for what only Chrome shows (extension name and
+  description, toolbar tooltip, toolbar menu).
+- Code outside the page never builds UI text: actions and lib throw `UserError(key, params)` (its
+  message is the key, which tests match), `Gone(what)` carries a `what.*` key, `relativeDay` and
+  `greetingFor` return keys, model warnings are `{key, params}`, and the model's own labels come in
+  through `createActions({ labels })`.
+- Guards: a test keeps both dictionaries' keys identical and every entry non-empty; `make check`
+  fails on CJK text in `extension/**/*.{js,html}` outside comments, `locales/`, `_locales/` and the
+  generated hanzi table. (Written in Node: macOS grep has no `-P`, and a grep version passed
+  silently.)
+- Folder names are data, never translated: `Top`, `Groups`, `Inbox`, `Archive` and the root keep their
+  names in both languages, so a bookmarks folder made in one language works in the other.
+- Wording: Chinese mode uses Chinese for actions (移到 Inbox, 封存) and keeps folder names for the
+  Inbox/Archive sections; README screenshots exist in both languages (`*-zh.png`).
+
+**D-034 The pinned row is "Pin" / 「釘選」; its tab group is "Cairn Pin".** 2026-11-05.
+"Top" said where the row sits, not what it is, and does not translate well. The UI calls it Pin /
+釘選. The bookmarks folder keeps the name `Top` (D-033: folder names are data; renaming would need a
+second accepted name, and "Pin" was also the old root folder's name — D-029 — so `Pin/Pin` folders
+would follow). Rejected: naming the row "Cairn" — it collided with the product name and with
+existing roots called "Cairn", and says nothing about what the row does. The tab group the pins open
+into becomes "Cairn Pin": it shows only in the tab strip, where the product name helps. A group still
+titled "Top Pin" is found by title on load and renamed; the remembered group id keeps working as
+before.
+
+**D-035 The pins folder is "Pin"; "Top" still works.** 2026-11-05. Amends D-034.
+D-034 renamed the row in the UI only and kept the folder `Top`, to avoid a second accepted name and
+`Pin/Pin` for roots still named "Pin". In use, a UI called Pin over a folder called Top was the
+confusing part, so the folder follows: `ROLE_NAMES.top = ["Pin", "Top"]` — CairnTab creates "Pin",
+and both names are read (case-insensitive, first one wins with the usual duplicate warning). Existing
+`Top` folders keep working and can be renamed whenever the user likes. The role key stays "top" in
+code and storage (`groupMap`, drop targets), so nothing stored has to migrate. A root that is itself
+named "Pin" (setups from before D-029 that saved that name) with a "Pin" folder inside is fine:
+the root is searched from the bookmarks bar down, the role folder only among its children.
+
+**D-036 Drawer sides are a setting; open tabs left, bookmarks and settings right.** 2026-11-05.
+Amends D-018/D-019 (bookmarks fixed left, open tabs and settings sharing the right).
+The drawers' sides followed the original layout, not how they are used: the open-tabs list is where
+filing starts, and it reads better next to the page's left edge. `settings.drawers` =
+`{ tabs, bookmarks, settings }`, each "left" | "right"; default tabs left, bookmarks and settings
+right. The page has two slots and moves the three views into them, so any combination works: views on
+the same side open one at a time (opening one closes the other), settings cover their side while
+open and give it back when closed (as before on the right), and below 900px only one side opens. It
+is a synced setting, not a per-browser preference, because it is about the user's habits rather than
+the window. The header lists open tabs before bookmarks to match, and the settings button became a
+gear (the sliders icon read as "filters").

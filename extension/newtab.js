@@ -2,15 +2,31 @@
 // is followed by a fresh load, because bookmarks may have changed in between.
 
 import { daysLeft, relativeDay, sortInbox } from "./lib/archive.js";
+import { highlight, search, searchEntries, tokenize } from "./lib/search.js";
 import { colorFor } from "./lib/tabs.js";
 import { displayHost } from "./lib/url.js";
 import {
   ACCENTS, accentHex, dominantColor, exportAppearance, greetingFor, importAppearance, normalizeAppearance, themeTokens,
 } from "./lib/theme.js";
-import { createActions, Gone } from "./chrome/actions.js";
+import { createActions, Gone, TOP_GROUP_TITLE } from "./chrome/actions.js";
+import { normalizeDrawers } from "./chrome/store.js";
+import { createT, intlLocale, resolveLang, UserError } from "./lib/i18n.js";
 import { clearWallpaper, getWallpaper, setWallpaper } from "./wallpaper.js";
 
-const actions = createActions(chrome);
+// ---------- language (D-033) ----------
+// `t` is swapped when the language changes; everything re-renders from state, so a switch is instant.
+// The last resolved language is cached in localStorage so the first paint already uses it.
+const LANG_CACHE = "cairntab.lang";
+let lang = (() => {
+  try {
+    return resolveLang(localStorage.getItem(LANG_CACHE) ?? "auto", navigator.languages);
+  } catch {
+    return resolveLang("auto", navigator.languages);
+  }
+})();
+let t = createT(lang);
+
+const actions = createActions(chrome, { labels: () => ({ loose: t("task.loose"), untitled: t("ui.untitled") }) });
 const $ = (s) => document.querySelector(s);
 const GROUP_COLORS = {
   grey: "#8a8a8a", blue: "#3b78e7", cyan: "#12a4af", green: "#1e8e3e",
@@ -126,6 +142,13 @@ function favicon(url, size = 16, { tint = null } = {}) {
   return img;
 }
 
+/** Text for an error: dictionary keys for ours (UserError, Gone), the raw message for anything else. */
+function errorText(e) {
+  if (e instanceof Gone) return t("toast.gone", { what: t(`what.${e.what}`) });
+  if (e instanceof UserError) return t(e.key, e.params);
+  return e?.message ?? String(e);
+}
+
 /** Run an action, report the outcome, and reload. Gone is expected, not an error. */
 async function run(fn, okMsg) {
   try {
@@ -133,11 +156,8 @@ async function run(fn, okMsg) {
     const msg = typeof okMsg === "function" ? okMsg(result) : okMsg;
     if (msg) toast(msg);
   } catch (e) {
-    if (e instanceof Gone) toast(`${e.message}，已重新整理`);
-    else {
-      console.error(e);
-      toast(e?.message ?? String(e));
-    }
+    if (!(e instanceof UserError)) console.error(e);
+    toast(errorText(e));
   }
   scheduleRender(0);
 }
@@ -155,7 +175,57 @@ const leaving = () => (state?.settings?.closeOnSwitch === false ? null : selfTab
 const wantsBackground = (ev) => ev.button === 1 || (ev.metaKey || ev.ctrlKey) !== stayMode();
 
 /** Feedback for a background open, since nothing else visibly happens on this page. */
-const openedMsg = (bg, title) => (r) => !bg ? null : r.focused ? `「${title}」已經開著了` : `已在背景開啟「${title}」`;
+const openedMsg = (bg, title) => (r) => !bg ? null : t(r.focused ? "toast.alreadyOpen" : "toast.openedBg", { title });
+
+/** Where something is filed, for tags: the section name for Pin and Inbox, the task's own title. */
+const placeLabel = (kind, label) => (kind === "top" ? t("sec.pin") : kind === "inbox" ? t("sec.inbox") : label);
+
+/** "today" / "yesterday" / "N days ago" in the current language. */
+function dayText(ts, now) {
+  const r = relativeDay(ts, now);
+  return r ? t(r.key, { n: r.n }) : "";
+}
+
+/** Fill the static page text (data-i18n*, see newtab.html) in the current language. */
+function applyStaticText() {
+  document.documentElement.lang = lang;
+  for (const n of document.querySelectorAll("[data-i18n]")) n.textContent = t(n.dataset.i18n);
+  for (const n of document.querySelectorAll("[data-i18n-attr]")) {
+    for (const pair of n.dataset.i18nAttr.split(",")) {
+      const [attr, key] = pair.split(":");
+      n.setAttribute(attr, t(key));
+    }
+  }
+  // Header buttons: the label is the accessible name and the tooltip adds the shortcut key.
+  for (const n of document.querySelectorAll("[data-i18n-tip]")) {
+    const label = t(n.dataset.i18nTip);
+    n.setAttribute("aria-label", label);
+    n.dataset.tip = `${label} (${n.getAttribute("aria-keyshortcuts")})`;
+  }
+  $("#usageRoles").replaceChildren(...[["Pin", "usage.top"], ["Groups", "usage.groups"], ["Inbox", "usage.inbox"], ["Archive", "usage.archive"]]
+    .flatMap(([folder, key]) => [el("dt", {}, folder), el("dd", {}, t(key, { group: TOP_GROUP_TITLE }))]));
+}
+
+/**
+ * Switch the page language for a setting ("auto" | "zh-Hant" | "en"). Cheap when nothing changes,
+ * so render() calls it every time with the stored setting.
+ */
+function setLanguage(setting, { force = false } = {}) {
+  const next = resolveLang(setting, navigator.languages);
+  try {
+    localStorage.setItem(LANG_CACHE, setting);
+  } catch {
+    /* cache only */
+  }
+  for (const b of document.querySelectorAll("#language button")) b.setAttribute("aria-pressed", String(b.dataset.lang === setting));
+  if (next === lang && !force) return false;
+  lang = next;
+  t = createT(lang);
+  applyStaticText();
+  renderAppearance();
+  tickClock();
+  return true;
+}
 
 // ---------- drag and drop ----------
 //
@@ -259,31 +329,31 @@ function placeTarget(anchor, { horizontal = false } = {}) {
 function handleDrop(p, target) {
   const isTab = p.kind === "tab";
   if (p.kind === "folder") {
-    return run(() => actions.adoptFolder(p.id), `「${p.title}」已變成任務`);
+    return run(() => actions.adoptFolder(p.id), t("toast.adopted", { title: p.title }));
   }
   if (target.newTask) {
-    const name = prompt("新任務名稱", p.title ?? "");
+    const name = prompt(t("newTask.prompt"), p.title ?? "");
     if (!name?.trim()) return;
     return run(async () => {
       const { taskId } = await actions.createTask(name, { tabId: isTab ? p.id : null });
       if (!isTab) await actions.moveItem(p.id, { taskId });
       return name.trim();
-    }, (n) => `已建立任務「${n}」`);
+    }, (n) => t("toast.taskCreated", { name: n }));
   }
   if (target.role === "top") {
     return isTab
-      ? run(() => actions.pinTab(p.id), (r) => (r.duplicate ? "Top 已經有了" : "已加入 Top"))
-      : run(() => actions.moveItem(p.id, { role: "top" }), "已移到 Top");
+      ? run(() => actions.pinTab(p.id), (r) => t(r.duplicate ? "toast.pinExists" : "toast.pinned"))
+      : run(() => actions.moveItem(p.id, { role: "top" }), t("toast.movedToPin"));
   }
   if (target.role === "inbox") {
     return isTab
-      ? run(() => actions.parkTab(p.id), (r) => (r.duplicate ? "Inbox 已經有了，分頁已關閉" : "已移到 Inbox，分頁已關閉"))
-      : run(() => actions.moveItem(p.id, { role: "inbox" }), "已移到 Inbox");
+      ? run(() => actions.parkTab(p.id), (r) => t(r.duplicate ? "toast.inboxExists" : "toast.parked"))
+      : run(() => actions.moveItem(p.id, { role: "inbox" }), t("toast.movedToInbox"));
   }
   if (target.taskId) {
     return isTab
-      ? run(() => actions.fileTab(p.id, target.taskId), `已加入「${target.title}」`)
-      : run(() => actions.moveItem(p.id, { taskId: target.taskId }), `已移到「${target.title}」`);
+      ? run(() => actions.fileTab(p.id, target.taskId), t("toast.filed", { name: target.title }))
+      : run(() => actions.moveItem(p.id, { taskId: target.taskId }), t("toast.movedTo", { name: target.title }));
   }
 }
 
@@ -294,7 +364,7 @@ function handleDrop(p, target) {
  * click/drag events so typing never opens the page or starts a drag of the row around it.
  */
 function inlineEdit({ hide, value, onSave, wrap = (input) => input }) {
-  const input = el("input", { class: "rename", type: "text", "aria-label": "新名稱" });
+  const input = el("input", { class: "rename", type: "text", "aria-label": t("ui.newName") });
   input.value = value;
   const node = wrap(input);
   const dragHost = hide.closest('[draggable="true"]');
@@ -311,7 +381,7 @@ function inlineEdit({ hide, value, onSave, wrap = (input) => input }) {
     node.remove();
     hide.hidden = false;
     dragHost?.setAttribute("draggable", "true");
-    if (save && next && next !== value) run(() => onSave(next), "已重新命名");
+    if (save && next && next !== value) run(() => onSave(next), t("toast.renamed"));
   };
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -335,7 +405,7 @@ function renderTop(model) {
       ...dragSource({ kind: "item", id: it.id, title: it.title, url: it.url }),
       ...placeTarget(it, { horizontal: true }),
       class: "pin",
-      title: `${it.title}\n${it.url}${it.openTabId != null ? "\n（已開啟，點擊切換）" : ""}`,
+      title: `${it.title}\n${it.url}${it.openTabId != null ? `\n${t("pin.openHint")}` : ""}`,
       disabled: !it.openable,
       onclick: (ev) => {
         const bg = wantsBackground(ev);
@@ -347,7 +417,7 @@ function renderTop(model) {
       el("span", {
         class: "pin-edit",
         role: "button",
-        title: "重新命名",
+        title: t("ui.rename"),
         onclick: (ev) => {
           ev.stopPropagation(); // do not also open the pin
           const pin = ev.currentTarget.closest(".pin");
@@ -362,38 +432,65 @@ function renderTop(model) {
       el("span", {
         class: "pin-x",
         role: "button",
-        title: "移到 Archive（不會刪除）",
+        title: t("ui.archiveTitle"),
         onclick: (ev) => {
           ev.stopPropagation(); // do not also open the pin
-          run(() => actions.archiveItem(it.id), `「${it.title}」已移到 Archive`);
+          run(() => actions.archiveItem(it.id), t("toast.archivedItem", { title: it.title }));
         },
       }, icon("x")),
     ]),
     el("span", { class: "label" }, it.title)));
   return el("section", { class: "block zone", ...dropZone({ role: "top" }) },
-    el("h2", {}, "Top", el("span", { class: "count" }, String(model.top.length)),
+    el("h2", {}, t("sec.pin"), el("span", { class: "count" }, String(model.top.length)),
       model.topGroupId != null ? el("button", {
         class: "btn small ghost",
-        title: "關掉「Top Pin」分頁群組裡的分頁（書籤不受影響）",
-        onclick: () => run(() => actions.closeTop(), (r) => `關掉 ${r.closed} 個分頁`),
-      }, "收起") : null),
-    pins.length ? el("div", { class: "pins" }, pins) : emptyState("star", "把分頁拖到這裡，或在書籤的 Top 資料夾放入網頁。"));
+        title: t("pin.closeTitle", { group: TOP_GROUP_TITLE }),
+        onclick: () => run(() => actions.closeTop(), (r) => t("toast.closedTabs", { n: r.closed })),
+      }, t("task.closeTabs")) : null),
+    pins.length ? el("div", { class: "pins" }, pins) : emptyState("star", t("empty.pin")));
 }
 
 /** The tinted square behind a Top icon; its tint comes from the favicon itself. */
 function pinTile(it, controls = []) {
   const tile = el("span", { class: "tile" }, controls);
   tile.append(favicon(it.iconPage ?? it.url, 32, { tint: tile }));
-  if (it.openTabId != null) tile.append(el("span", { class: "dot", title: "已開啟" }));
+  if (it.openTabId != null) tile.append(el("span", { class: "dot", title: t("ui.open") }));
   return tile;
 }
 
-function itemRow(it, { taskId = null, extra = null, archivable = true, reorder = false } = {}) {
+/**
+ * "移到…" on an Inbox row: Top or a task (`from` is left out of the list). Dragging a row out of a
+ * long Inbox up to a task card means scrolling while dragging (D-032). Task cards do not get it: they
+ * are narrow, and even hidden the select would take the room the titles need.
+ */
+function moveSelect(it, from) {
+  const tasks = (state?.model?.tasks ?? []).filter((t) => !t.loose && t.id !== from);
+  const opts = [
+    from === "top" ? null : el("option", { value: "role:top" }, t("sec.pin")),
+    from === "inbox" ? null : el("option", { value: "role:inbox" }, t("sec.inbox")),
+    tasks.length ? el("optgroup", { label: t("move.tasks") }, tasks.map((t) => el("option", { value: `task:${t.id}` }, t.title))) : null,
+  ];
+  return el("select", {
+    class: "file move hover-only",
+    title: t("move.title"),
+    "aria-label": t("move.aria", { title: it.title }),
+    onchange: (ev) => {
+      const [kind, id] = ev.target.value.split(/:(.*)/s);
+      const name = ev.target.selectedOptions[0]?.textContent;
+      ev.target.value = "";
+      if (!kind) return;
+      const target = kind === "task" ? { taskId: id } : { role: id };
+      run(() => actions.moveItem(it.id, target), t("toast.movedTo", { name }));
+    },
+  }, el("option", { value: "" }, t("move.label")), opts);
+}
+
+function itemRow(it, { taskId = null, extra = null, archivable = true, reorder = false, moveFrom = null } = {}) {
   const drag = dragSource({ kind: "item", id: it.id, title: it.title, url: it.url });
   return el("li", { class: "row", ...drag, ...(reorder ? placeTarget(it) : {}) },
     el("button", {
       class: "edit hover-only",
-      title: "重新命名",
+      title: t("ui.rename"),
       onclick: (ev) => inlineEdit({
         hide: ev.currentTarget.parentElement.querySelector(".main"),
         value: it.title,
@@ -403,7 +500,7 @@ function itemRow(it, { taskId = null, extra = null, archivable = true, reorder =
     el("button", {
       draggable: "true",
       class: "main",
-      title: it.openable ? it.url : "無法從擴充開啟（例如 bookmarklet）",
+      title: it.openable ? it.url : t("err.bookmarklet"),
       disabled: !it.openable,
       onclick: (ev) => {
         const bg = wantsBackground(ev);
@@ -413,88 +510,89 @@ function itemRow(it, { taskId = null, extra = null, archivable = true, reorder =
     },
     favicon(it.iconPage ?? it.url),
     el("span", { class: "text" }, it.title, el("span", { class: "host" }, displayHost(it.url)))),
-    it.openTabId != null ? el("span", { class: "dot", title: "已開啟" }) : null,
+    it.openTabId != null ? el("span", { class: "dot", title: t("ui.open") }) : null,
     extra,
+    moveFrom ? moveSelect(it, moveFrom) : null,
     archivable ? el("button", {
       class: "btn small ghost hover-only",
-      title: "移到 Archive（不會刪除）",
-      onclick: () => run(() => actions.archiveItem(it.id), "已移到 Archive"),
-    }, "Archive") : null);
+      title: t("ui.archiveTitle"),
+      onclick: () => run(() => actions.archiveItem(it.id), t("toast.archived")),
+    }, t("ui.archive")) : null);
 }
 
 function renderTasks(model, now) {
   if (!model.folders.groups) return null;
-  const cards = model.tasks.map((t) => {
-    const color = GROUP_COLORS[colorFor(t.title)];
-    const meta = [el("span", {}, `${t.items.length} 頁`)];
-    if (t.openCount) meta.push(el("span", { class: "chip" }, el("span", { class: "dot" }), `${t.openCount} 開著`));
-    if (t.lastOpened) meta.push(el("span", {}, `上次 ${relativeDay(t.lastOpened, now)}`));
-    const zone = t.loose ? {} : dropZone({ taskId: t.id, title: t.title });
+  const cards = model.tasks.map((task) => {
+    const color = GROUP_COLORS[colorFor(task.title)];
+    const meta = [el("span", {}, t("task.pages", { n: task.items.length }))];
+    if (task.openCount) meta.push(el("span", { class: "chip" }, el("span", { class: "dot" }), t("task.openCount", { n: task.openCount })));
+    if (task.lastOpened) meta.push(el("span", {}, t("task.last", { when: dayText(task.lastOpened, now) })));
+    const zone = task.loose ? {} : dropZone({ taskId: task.id, title: task.title });
     // Folding is instant (class toggle) and only then persisted; no re-render needed.
     const fold = el("button", {
       class: "icon-btn small fold",
-      title: t.collapsed ? "展開" : "收合",
-      "aria-expanded": String(!t.collapsed),
+      title: task.collapsed ? t("ui.expand") : t("ui.fold"),
+      "aria-expanded": String(!task.collapsed),
       onclick: (ev) => {
         const card = ev.currentTarget.closest(".task");
         const collapsed = card.classList.toggle("collapsed");
         ev.currentTarget.setAttribute("aria-expanded", String(!collapsed));
-        ev.currentTarget.title = collapsed ? "展開" : "收合";
-        actions.setCollapsed(t.id, collapsed).catch((e) => console.warn("[cairntab] fold not saved:", e));
+        ev.currentTarget.title = t(collapsed ? "ui.expand" : "ui.fold");
+        actions.setCollapsed(task.id, collapsed).catch((e) => console.warn("[cairntab] fold not saved:", e));
       },
     }, icon("down"));
     return el("article", {
-      class: `task${t.loose ? "" : " zone"}${t.collapsed ? " collapsed" : ""}`,
-      style: t.loose ? null : `--task:${color}`,
+      class: `task${task.loose ? "" : " zone"}${task.collapsed ? " collapsed" : ""}`,
+      style: task.loose ? null : `--task:${color}`,
       ...zone,
     },
       el("header", {},
-        t.loose
-          ? el("span", { class: "title", title: t.title }, t.title)
+        task.loose
+          ? el("span", { class: "title", title: task.title }, task.title)
           : el("span", {
             class: "title editable",
-            title: "點一下重新命名",
+            title: t("task.renameHint"),
             onclick: (ev) => inlineEdit({
               hide: ev.currentTarget,
-              value: t.title,
-              onSave: (v) => actions.renameTask(t.id, v),
+              value: task.title,
+              onSave: (v) => actions.renameTask(task.id, v),
             }),
-          }, t.title),
+          }, task.title),
         el("span", { class: "actions" },
-          t.loose ? null : el("button", {
+          task.loose ? null : el("button", {
             class: "btn small",
-            title: "把還沒開的頁面全部開進這個分頁群組",
-            disabled: !t.items.some((i) => i.openable),
+            title: t("task.openAllTitle"),
+            disabled: !task.items.some((i) => i.openable),
             onclick: (ev) => {
               const bg = wantsBackground(ev);
-              run(() => actions.openTask(t.id, { selfTabId: leaving(), background: bg }),
-                bg ? (r) => `在背景開了 ${r.opened} 頁` : null);
+              run(() => actions.openTask(task.id, { selfTabId: leaving(), background: bg }),
+                bg ? (r) => t("toast.openedTaskBg", { n: r.opened }) : null);
             },
-          }, "全開"),
-          !t.loose && t.groupId != null ? el("button", {
+          }, t("task.openAll")),
+          !task.loose && task.groupId != null ? el("button", {
             class: "btn small ghost",
-            title: "關掉這個任務的分頁（書籤不受影響）",
-            onclick: () => run(() => actions.closeTask(t.id), (r) => `關掉 ${r.closed} 個分頁`),
-          }, "收起") : null,
+            title: t("task.closeTitle"),
+            onclick: () => run(() => actions.closeTask(task.id), (r) => t("toast.closedTabs", { n: r.closed })),
+          }, t("task.closeTabs")) : null,
           fold)),
       el("p", { class: "meta" }, meta),
       el("div", { class: "task-body" },
         el("div", {},
-          t.items.length
-            ? el("ul", { class: "rows" }, t.items.map((it) => itemRow(it, { taskId: t.loose ? null : t.id, reorder: true })))
-            : emptyState("folder", "拖分頁或書籤進來"))));
+          task.items.length
+            ? el("ul", { class: "rows" }, task.items.map((it) => itemRow(it, { taskId: task.loose ? null : task.id, reorder: true })))
+            : emptyState("folder", t("empty.task")))));
   });
   const newTask = el("button", {
     class: "task new-task zone",
-    title: "點擊建立空任務，或把分頁／書籤拖到這裡建立新任務",
+    title: t("newTask.title"),
     ...dropZone({ newTask: true }, () => true),
     onclick: () => {
-      const name = prompt("新任務名稱");
-      if (name?.trim()) run(() => actions.createTask(name), `已建立任務「${name.trim()}」`);
+      const name = prompt(t("newTask.prompt"));
+      if (name?.trim()) run(() => actions.createTask(name), t("toast.taskCreated", { name: name.trim() }));
     },
-  }, el("span", { class: "plus" }, icon("plus")), el("span", {}, "新任務"), el("span", { class: "hint" }, "可拖曳分頁到這裡"));
+  }, el("span", { class: "plus" }, icon("plus")), el("span", {}, t("newTask.label")), el("span", { class: "hint" }, t("newTask.hint")));
   return el("section", { class: "block" },
-    el("h2", {}, "任務", el("span", { class: "count" }, String(model.tasks.filter((t) => !t.loose).length))),
+    el("h2", {}, t("sec.tasks"), el("span", { class: "count" }, String(model.tasks.filter((x) => !x.loose).length))),
     el("div", { class: "tasks" }, cards, newTask));
 }
 
@@ -505,14 +603,14 @@ function renderInbox(model, settings, now) {
     .map((it) => {
       const left = daysLeft(it.dateAdded, settings.archiveDays, now);
       const badge = left == null ? null
-        : el("span", { class: `badge${left <= 3 ? " warn" : ""}`, title: `${settings.archiveDays} 天後自動移到 Archive` },
-          left === 0 ? "今天封存" : `剩 ${left} 天`);
-      return itemRow(it, { reorder: manual, extra: el("span", { class: "side" }, relativeDay(it.dateAdded, now), " ", badge) });
+        : el("span", { class: `badge${left <= 3 ? " warn" : ""}`, title: t("inbox.autoTitle", { n: settings.archiveDays }) },
+          left === 0 ? t("inbox.today") : t("inbox.left", { n: left }));
+      return itemRow(it, { reorder: manual, moveFrom: "inbox", extra: el("span", { class: "side" }, dayText(it.dateAdded, now), " ", badge) });
     });
   return el("section", { class: "block zone", ...dropZone({ role: "inbox" }) },
-    el("h2", {}, "Inbox", el("span", { class: "count" }, String(model.inbox.length))),
+    el("h2", {}, t("sec.inbox"), el("span", { class: "count" }, String(model.inbox.length))),
     el("div", { class: "list-panel" }, rows.length ? el("ul", { class: "rows" }, rows)
-      : emptyState("inbox", "Inbox 是空的。把分頁拖到這裡，或按「Move to Inbox」。")),
+      : emptyState("inbox", t("empty.inbox"))),
     renderArchive(model));
 }
 
@@ -532,20 +630,20 @@ function renderArchive(model) {
       ev.currentTarget.setAttribute("aria-expanded", String(now));
       actions.setCollapsed("archive", now).catch((e) => console.warn("[cairntab] archive state not saved:", e));
     },
-  }, el("span", { class: "chev" }, icon("right")), `Archive ${model.archiveCount}`);
+  }, el("span", { class: "chev" }, icon("right")), t("archive.toggle", { n: model.archiveCount }));
   const rows = model.archive.map((it) => itemRow(it, {
     archivable: false,
     extra: el("button", {
       class: "btn small ghost hover-only",
-      title: "移回 Inbox，重新開始倒數",
-      onclick: () => run(() => actions.restoreItem(it.id), "已移回 Inbox"),
-    }, "移回 Inbox"),
+      title: t("archive.restoreTitle"),
+      onclick: () => run(() => actions.restoreItem(it.id), t("toast.restored")),
+    }, t("archive.restore")),
   }));
   return el("div", { class: `archive${open ? " open" : ""}` },
     toggle,
     el("div", { class: "list-panel archive-list" },
-      rows.length ? el("ul", { class: "rows" }, rows) : emptyState("archive", "Archive 是空的。"),
-      el("p", { class: "hint archive-hint" }, "要永久刪除，請在書籤管理員裡操作；CairnTab 不會刪除書籤。")));
+      rows.length ? el("ul", { class: "rows" }, rows) : emptyState("archive", t("empty.archive")),
+      el("p", { class: "hint archive-hint" }, t("archive.hint"))));
 }
 
 /** Tab ids ticked in "other open tabs". Survives re-renders; pruned to tabs that still exist. */
@@ -570,7 +668,7 @@ function bulk(op, opts = {}, label = "") {
     const r = await actions.bulkTabs(ids, op, opts);
     selectedTabs.clear();
     return r;
-  }, (r) => `${label} ${r.done} 個分頁${r.gone ? `（${r.gone} 個已經關掉了）` : ""}`);
+  }, (r) => t("toast.bulk", { label, n: r.done, gone: r.gone }));
 }
 
 /**
@@ -584,9 +682,12 @@ function renderOpenTabs(openTabs, model) {
   const unfiled = openTabs.filter((t) => !t.place);
   const ordered = [...unfiled, ...openTabs.filter((t) => t.place)];
   const untracked = ordered; // checkboxes and select-all cover every listed tab
-  const placeTag = (place) => el("span", { class: `place-tag place-${place.kind}`, title: `已收在「${place.label}」` },
-    place.kind === "task" ? el("span", { class: "swatch", style: `background:${GROUP_COLORS[colorFor(place.label)]}` }) : null,
-    place.label);
+  const placeTag = (place) => {
+    const label = placeLabel(place.kind, place.label);
+    return el("span", { class: `place-tag place-${place.kind}`, title: t("tabs.filedIn", { label }) },
+      place.kind === "task" ? el("span", { class: "swatch", style: `background:${GROUP_COLORS[colorFor(place.label)]}` }) : null,
+      label);
+  };
   const rows = ordered.map((tab) => el("li", {
     class: `row${tab.place ? " tracked" : ""}${selectedTabs.has(tab.id) ? " selected" : ""}`,
     ...dragSource({ kind: "tab", id: tab.id, title: tab.title, url: tab.url }),
@@ -594,7 +695,7 @@ function renderOpenTabs(openTabs, model) {
   el("input", {
     type: "checkbox",
     class: "pick",
-    "aria-label": "選取這個分頁",
+    "aria-label": t("tabs.select"),
     checked: selectedTabs.has(tab.id),
     onchange: (ev) => {
       if (ev.target.checked) selectedTabs.add(tab.id);
@@ -607,12 +708,7 @@ function renderOpenTabs(openTabs, model) {
     draggable: "true",
     class: "main",
     title: tab.url,
-    onclick: () => run(async () => {
-      await chrome.tabs.update(tab.id, { active: true });
-      await chrome.windows.update(tab.windowId, { focused: true });
-      const self = leaving();
-      if (self != null && self !== tab.id) await chrome.tabs.remove(self);
-    }),
+    onclick: () => run(() => actions.switchToTab(tab.id, { selfTabId: leaving() })),
   },
   // Chrome's local icon cache, not tab.favIconUrl: that is usually the site's remote URL, and loading
   // it would make this page fetch from every site you have open.
@@ -621,20 +717,20 @@ function renderOpenTabs(openTabs, model) {
   tab.place ? placeTag(tab.place) : null,
   tab.place ? null : el("span", { class: "row-actions hover-only" },
     tasks.length ? taskSelect(tasks, {
-      label: "加入任務…",
-      title: "加入任務：存成任務書籤，並把分頁移進任務群組",
-      onPick: (taskId, name) => run(() => actions.fileTab(tab.id, taskId), `已加入「${name}」`),
+      label: t("tabs.addToTask"),
+      title: t("tabs.addToTaskTitle"),
+      onPick: (taskId, name) => run(() => actions.fileTab(tab.id, taskId), t("toast.filed", { name })),
     }) : null,
     el("button", {
       class: "btn small",
-      title: "存進 Inbox 並關掉分頁，釋放記憶體",
-      onclick: () => run(() => actions.parkTab(tab.id), (r) => r.duplicate ? "Inbox 已經有了，分頁已關閉" : "已移到 Inbox，分頁已關閉"),
-    }, "Move to Inbox"))));
+      title: t("tabs.parkTitle"),
+      onclick: () => run(() => actions.parkTab(tab.id), (r) => t(r.duplicate ? "toast.inboxExists" : "toast.parked")),
+    }, t("tabs.park")))));
 
   const allBox = el("input", {
     type: "checkbox",
     id: "pickAll",
-    "aria-label": "全選",
+    "aria-label": t("tabs.selectAll"),
     onchange: (ev) => {
       for (const t of untracked) ev.target.checked ? selectedTabs.add(t.id) : selectedTabs.delete(t.id);
       scheduleRender(0);
@@ -642,20 +738,20 @@ function renderOpenTabs(openTabs, model) {
   });
   const bar = el("div", { class: "bulk-bar", id: "bulkBar" },
     el("span", { class: "count", id: "bulkCount" }),
-    el("button", { class: "btn small", onclick: () => bulk("inbox", {}, "已移到 Inbox") }, "Move to Inbox"),
-    el("button", { class: "btn small", onclick: () => bulk("top", {}, "已加入 Top") }, "加到 Top"),
+    el("button", { class: "btn small", onclick: () => bulk("inbox", {}, t("toast.movedToInbox")) }, t("tabs.park")),
+    el("button", { class: "btn small", onclick: () => bulk("top", {}, t("toast.pinned")) }, t("tabs.pin")),
     tasks.length ? taskSelect(tasks, {
-      label: "加入任務…",
-      title: "把選取的分頁存進任務並移進任務群組",
-      onPick: (taskId, name) => bulk("task", { taskId }, `已加入「${name}」`),
+      label: t("tabs.addToTask"),
+      title: t("tabs.addToTaskBulkTitle"),
+      onPick: (taskId, name) => bulk("task", { taskId }, t("toast.filed", { name })),
     }) : null,
-    el("button", { class: "btn small ghost", title: "只關分頁，不存書籤", onclick: () => bulk("close", {}, "已關閉") }, "關閉分頁"),
-    el("button", { class: "btn small ghost", onclick: () => { selectedTabs.clear(); scheduleRender(0); } }, "取消選取"));
+    el("button", { class: "btn small ghost", title: t("tabs.closeTitle"), onclick: () => bulk("close", {}, t("toast.closed")) }, t("tabs.close")),
+    el("button", { class: "btn small ghost", onclick: () => { selectedTabs.clear(); scheduleRender(0); } }, t("tabs.deselect")));
   const section = el("section", { class: "open-tabs" },
     el("div", { class: "open-tabs-head" },
-      el("label", { class: "pick-all" }, allBox, "全選"),
-      el("span", { class: "count" }, `未收納 ${unfiled.length}`)),
-    el("p", { class: "hint" }, "拖到中間的 Top、任務或 Inbox 就能收納；勾選後可批次處理。"),
+      el("label", { class: "pick-all" }, allBox, t("tabs.selectAll")),
+      el("span", { class: "count" }, t("tabs.unfiled", { n: unfiled.length }))),
+    el("p", { class: "hint" }, t("tabs.hint")),
     bar,
     el("div", { class: "list-panel" }, el("ul", { class: "rows" }, rows)));
   queueMicrotask(() => updateBulkBar(untracked.length));
@@ -668,7 +764,7 @@ function updateBulkBar(total) {
   if (!bar) return;
   const n = selectedTabs.size;
   bar.hidden = n === 0;
-  $("#bulkCount").textContent = `已選 ${n} 個`;
+  $("#bulkCount").textContent = t("tabs.selected", { n });
   const all = $("#pickAll");
   all.checked = n > 0 && n === total;
   all.indeterminate = n > 0 && n < total;
@@ -679,47 +775,45 @@ function updateBulkBar(total) {
  * create it, and — when a folder that already looks like one exists under another name (e.g. one
  * made before the default changed from "Pin") — a one-click way to use that instead.
  */
-const ROLE_HELP = [
-  ["Top", "常用網站，最上方的圖示列"],
-  ["Groups", "每個子資料夾是一個任務"],
-  ["Inbox", "之後再看的頁面，到期自動封存"],
-  ["Archive", "完成或到期的項目，不會刪除"],
-];
+// Folder names are shown as they are (they are what the user sees in the bookmark manager).
+const ROLE_HELP = [["Pin", "role.top"], ["Groups", "role.groups"], ["Inbox", "role.inbox"], ["Archive", "role.archive"]];
+const quoteList = (xs) => xs.map((s) => t("quote", { s })).join(t("list.sep"));
 
 function renderNoRoot(settings, candidates = []) {
   const name = settings.rootTitle;
   const alt = candidates.map((c) => el("div", { class: "welcome-alt" },
     el("div", { class: "stext" },
-      el("span", { class: "slabel" }, `找到「${c.title}」資料夾`),
-      el("p", { class: "shint" }, `${c.path.length ? `${c.path.join(" › ")} › ` : ""}${c.title}，裡面有 ${c.roles.join("、")}`)),
+      el("span", { class: "slabel" }, t("welcome.found", { title: c.title })),
+      el("p", { class: "shint" }, t("welcome.foundDetail", {
+        path: c.path.length ? `${c.path.join(" › ")} › ` : "", title: c.title, roles: c.roles.join(t("list.sep")),
+      }))),
     el("button", {
       class: "btn",
-      onclick: () => run(() => actions.saveSettings({ rootTitle: c.title }), `已改用「${c.title}」資料夾`),
-    }, `改用「${c.title}」`)));
+      onclick: () => run(() => actions.saveSettings({ rootTitle: c.title }), t("toast.useRoot", { title: c.title })),
+    }, t("welcome.use", { title: c.title }))));
   return el("section", { class: "block welcome" },
     el("div", { class: "welcome-card" },
-      el("h2", {}, "歡迎使用 CairnTab"),
-      el("p", { class: "welcome-lead" },
-        `CairnTab 把書籤列上的一個資料夾變成你的任務板。按下按鈕，會在書籤列建立「${name}」資料夾和四個子資料夾：`),
-      el("dl", { class: "welcome-roles" }, ROLE_HELP.flatMap(([t, d]) => [el("dt", {}, t), el("dd", {}, d)])),
-      el("p", { class: "shint" }, "全部都是一般書籤：會跟著 Chrome 同步，也能隨時在書籤管理員裡整理。"),
+      el("h2", {}, t("welcome.title")),
+      el("p", { class: "welcome-lead" }, t("welcome.lead", { name })),
+      el("dl", { class: "welcome-roles" }, ROLE_HELP.flatMap(([folder, key]) => [el("dt", {}, folder), el("dd", {}, t(key))])),
+      el("p", { class: "shint" }, t("welcome.sync")),
       el("div", { class: "welcome-actions" },
         el("button", {
           class: "btn primary",
-          onclick: () => run(() => actions.ensureStructure(), `已建立「${name}」資料夾`),
-        }, icon("plus"), `建立「${name}」資料夾`),
+          onclick: () => run(() => actions.ensureStructure(), t("toast.rootCreated", { name })),
+        }, icon("plus"), t("welcome.create", { name })),
         el("button", {
           class: "btn ghost",
           onclick: () => {
-            setSide("settings");
+            setView("settings", true);
             setTimeout(() => $("#rootTitle").focus(), 300);
           },
-        }, "用其他名稱…")),
+        }, t("welcome.otherName"))),
       alt.length ? el("div", { class: "welcome-alts" },
-        el("p", { class: "shint" }, "已經有用過的資料夾？"), alt) : null));
+        el("p", { class: "shint" }, t("welcome.alts")), alt) : null));
 }
 
-const ROLE_LABELS = { top: "Top", groups: "Groups", inbox: "Inbox", archive: "Archive" };
+const ROLE_LABELS = { top: "Pin", groups: "Groups", inbox: "Inbox", archive: "Archive" };
 
 /**
  * The root exists but some role folders do not. Without this the page showed only "other tabs"
@@ -731,13 +825,13 @@ function renderMissingRoles(model) {
   if (!missing.length) return null;
   const rootName = model.root.title;
   return el("section", { class: "block notice" },
-    el("p", {}, `「${rootName}」資料夾裡還缺少：${missing.map((r) => ROLE_LABELS[r]).join("、")}。`),
+    el("p", {}, t("missing.lead", { root: rootName, list: missing.map((r) => ROLE_LABELS[r]).join(t("list.sep")) })),
     model.extras.length
-      ? el("p", { class: "hint" },
-        `「${rootName}」裡現有 ${model.extras.length} 個項目不屬於任何區塊（例如 ${model.extras.slice(0, 3).map((e) => `「${e.title}」`).join("、")}），`,
-        "CairnTab 不會動它們。建立資料夾後，可以在書籤管理員裡把它們拖進 Top 或 Groups。")
+      ? el("p", { class: "hint" }, t("missing.extras", {
+        root: rootName, n: model.extras.length, examples: quoteList(model.extras.slice(0, 3).map((e) => e.title)),
+      }))
       : null,
-    el("button", { class: "btn", onclick: () => run(() => actions.ensureStructure(), "已建立缺少的資料夾") }, "建立缺少的資料夾"));
+    el("button", { class: "btn", onclick: () => run(() => actions.ensureStructure(), t("toast.rolesCreated")) }, t("missing.create")));
 }
 
 // ---------- bookmark drawer ----------
@@ -774,14 +868,88 @@ function showPanel(node, open) {
   node.classList.toggle("open", open);
   node.inert = !open;
 }
-const isOpen = (sel) => $(sel).classList.contains("open");
 
-function setDrawer(open) {
-  if (open && narrow()) setSide(null);
-  showPanel($("#drawer"), open);
-  $("#bookmarksBtn").setAttribute("aria-expanded", String(open));
-  pref.set("drawer.open", open);
-  if (open && state) renderDrawer();
+// ---------- drawer slots (D-036) ----------
+//
+// Two slots, left and right. Each view (bookmarks, open tabs, settings) belongs to one side
+// (settings.drawers, cached in localStorage for the first paint). A slot shows one view at a time:
+// opening a view closes the other one on its side; settings cover their side while open and then
+// give it back. Which of bookmarks/tabs are open is remembered; settings always start closed.
+
+const VIEWS = { bookmarks: "#bookmarksView", tabs: "#tabsView", settings: "#settings" };
+const VIEW_BTNS = { bookmarks: "#bookmarksBtn", tabs: "#tabsBtn", settings: "#settingsBtn" };
+const SLOTS = { left: "#slotLeft", right: "#slotRight" };
+
+let drawerSides = normalizeDrawers(pref.get("drawers", null));
+// Before D-036: "drawer.open" (bookmarks) and "side.base" === "tabs".
+let openViews = new Set(pref.get("panels.open", null)
+  ?? [pref.get("drawer.open", false) && "bookmarks", pref.get("side.base", null) === "tabs" && "tabs"].filter(Boolean));
+let settingsOpen = false;
+
+const isShown = (view) => !$(VIEWS[view]).hidden && $(SLOTS[drawerSides[view]]).classList.contains("open");
+
+/** Put each view in its slot and show what should be open. */
+function applyDrawers() {
+  for (const [side, sel] of Object.entries(SLOTS)) {
+    const slot = $(sel);
+    const mine = Object.keys(VIEWS).filter((v) => drawerSides[v] === side);
+    const show = settingsOpen && drawerSides.settings === side ? "settings"
+      : mine.find((v) => v !== "settings" && openViews.has(v)) ?? null;
+    for (const v of mine) {
+      const node = $(VIEWS[v]);
+      if (node.parentElement !== slot) slot.append(node);
+      node.hidden = v !== show;
+    }
+    showPanel(slot, !!show);
+  }
+  for (const [v, sel] of Object.entries(VIEW_BTNS)) $(sel).setAttribute("aria-expanded", String(isShown(v)));
+  if (isShown("bookmarks") && state) renderDrawer();
+}
+
+/** Open or close one view (toggles when `open` is omitted). */
+function setView(view, open = !isShown(view)) {
+  const side = drawerSides[view];
+  if (view === "settings") settingsOpen = open;
+  else if (open) {
+    for (const v of [...openViews]) if (drawerSides[v] === side) openViews.delete(v);
+    openViews.add(view);
+    if (drawerSides.settings === side) settingsOpen = false;
+  } else openViews.delete(view);
+  // Below 900px a drawer covers the page, so only one side opens at a time.
+  if (open && narrow()) {
+    for (const v of [...openViews]) if (drawerSides[v] !== side) openViews.delete(v);
+    if (drawerSides.settings !== side) settingsOpen = false;
+  }
+  pref.set("panels.open", [...openViews]);
+  applyDrawers();
+}
+
+function closeAllDrawers() {
+  openViews.clear();
+  settingsOpen = false;
+  pref.set("panels.open", []);
+  applyDrawers();
+}
+
+/** New sides from settings: move the views, keep what is open. */
+function setDrawerSides(next) {
+  const norm = normalizeDrawers(next);
+  if (Object.keys(norm).every((k) => norm[k] === drawerSides[k])) return;
+  drawerSides = norm;
+  pref.set("drawers", norm);
+  // Two views that now share a side cannot both stay open: keep the one listed first.
+  const seen = new Set();
+  for (const v of [...openViews]) {
+    if (seen.has(drawerSides[v])) openViews.delete(v);
+    seen.add(drawerSides[v]);
+  }
+  applyDrawers();
+}
+
+function renderDrawerSides() {
+  for (const seg of document.querySelectorAll("#drawerSides [data-view]")) {
+    for (const b of seg.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.side === drawerSides[seg.dataset.view]));
+  }
 }
 
 function toggleFolder(id) {
@@ -815,13 +983,13 @@ function drawerNode(n, depth) {
   return el("li", { class: `dnode folder${open ? " open" : ""}`, ...drag },
     el("button", { class: "dnode-main", draggable: depth > 0 ? "true" : null, style: pad, onclick: () => toggleFolder(n.id) },
       el("span", { class: "chev" }, icon("right")),
-      el("span", { class: "text" }, n.title || "（未命名）"),
+      el("span", { class: "text" }, n.title || t("ui.untitled")),
       el("span", { class: "count" }, String(kids.length))),
     open && kids.length ? el("ul", {}, kids.map((c) => drawerNode(c, depth + 1))) : null);
 }
 
 function renderDrawer() {
-  if (!isOpen("#drawer")) return;
+  if (!isShown("bookmarks")) return;
   const roots = state?.bookmarkRoots ?? [];
   if (!pref.get("drawer.touched", false) && roots[0]) {
     expanded.add(roots[0].id); // first visit: bookmarks bar open
@@ -869,18 +1037,18 @@ async function patchAppearance(patch) {
     applyAppearance(await actions.saveAppearance(patch));
   } catch (e) {
     console.error(e);
-    toast("外觀沒有存到");
+    toast(t("toast.appearanceNotSaved"));
   }
   renderAppearance();
 }
 
 function tickClock() {
   const d = new Date();
-  $("#greeting").textContent = appearance.greeting ? greetingFor(d.getHours()) : "CairnTab";
-  $("#today").textContent = d.toLocaleDateString("zh-TW", { month: "long", day: "numeric", weekday: "short" });
+  $("#greeting").textContent = appearance.greeting ? t(greetingFor(d.getHours())) : "CairnTab";
+  $("#today").textContent = d.toLocaleDateString(intlLocale(lang), { month: "long", day: "numeric", weekday: "short" });
   const clock = $("#clock");
   clock.hidden = !appearance.clock;
-  clock.textContent = d.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
+  clock.textContent = d.toLocaleTimeString(intlLocale(lang), { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 // Settings layout: titled groups of rows, like the system settings. A row is a label (plus an
@@ -926,18 +1094,20 @@ function toggle(label, key, hint) {
   }), { hint });
 }
 
+const SIZES = () => [["s", t("size.s")], ["m", t("size.m")], ["l", t("size.l")]];
+
 function renderAppearance() {
   const a = appearance;
   const custom = !ACCENTS[a.accent];
   const swatches = el("div", { class: "swatches" },
     Object.entries(ACCENTS).map(([name, hex]) => el("button", {
-      type: "button", style: `--c:${hex}`, title: name, "aria-label": `強調色 ${name}`,
+      type: "button", style: `--c:${hex}`, title: name, "aria-label": t("accent.aria", { name }),
       "aria-pressed": String(a.accent === name),
       onclick: () => patchAppearance({ accent: name }),
     })),
-    el("label", { class: `custom${custom ? " on" : ""}`, title: "自訂顏色" },
+    el("label", { class: `custom${custom ? " on" : ""}`, title: t("accent.custom") },
       el("input", {
-        type: "color", value: accentHex(a.accent), "aria-label": "自訂強調色",
+        type: "color", value: accentHex(a.accent), "aria-label": t("accent.customAria"),
         oninput: (ev) => applyAppearance({ ...appearance, accent: ev.target.value }, { cache: false }),
         onchange: (ev) => patchAppearance({ accent: ev.target.value }),
       })));
@@ -951,17 +1121,17 @@ function renderAppearance() {
         await setWallpaper(f);
         await loadWallpaper();
         await patchAppearance({ background: "image" });
-        toast("背景圖片已設定");
+        toast(t("toast.wallpaperSet"));
       } catch (e) {
-        toast(e?.message ?? "圖片無法使用");
+        toast(e instanceof UserError ? errorText(e) : t("err.imageUnusable"));
       }
     },
   });
   const imageRows = a.background === "image" ? [
     el("div", { class: "srow stack" },
-      el("div", { class: "wall-preview" }, wallpaperUrl ? null : el("span", { class: "shint" }, "還沒有圖片")),
+      el("div", { class: "wall-preview" }, wallpaperUrl ? null : el("span", { class: "shint" }, t("bg.none"))),
       el("div", { class: "field-actions" },
-        el("button", { class: "btn small", type: "button", onclick: () => file.click() }, icon("image"), wallpaperUrl ? "換一張" : "選擇圖片"),
+        el("button", { class: "btn small", type: "button", onclick: () => file.click() }, icon("image"), t(wallpaperUrl ? "bg.change" : "bg.choose")),
         wallpaperUrl ? el("button", {
           class: "btn small ghost", type: "button",
           onclick: async () => {
@@ -969,78 +1139,199 @@ function renderAppearance() {
             await loadWallpaper();
             await patchAppearance({ background: "plain" });
           },
-        }, "移除圖片") : null)),
-    range("遮罩", "imageDim", 0, 85, "%"),
-    range("模糊", "imageBlur", 0, 24, "px"),
+        }, t("bg.remove")) : null)),
+    range(t("bg.dim"), "imageDim", 0, 85, "%"),
+    range(t("bg.blur"), "imageBlur", 0, 24, "px"),
   ] : [];
 
   const footer = el("div", { class: "sfooter" },
     el("button", {
-      class: "btn small ghost", type: "button", title: "把外觀設定複製到剪貼簿（不含背景圖片）",
+      class: "btn small ghost", type: "button", title: t("set.exportTitle"),
       onclick: async () => {
         try {
           await navigator.clipboard.writeText(exportAppearance(appearance));
-          toast("外觀設定已複製");
+          toast(t("toast.appearanceCopied"));
         } catch {
-          prompt("複製這段文字", exportAppearance(appearance));
+          prompt(t("set.copyPrompt"), exportAppearance(appearance));
         }
       },
-    }, "匯出"),
+    }, t("set.export")),
     el("button", {
-      class: "btn small ghost", type: "button", title: "貼上之前匯出的外觀設定",
+      class: "btn small ghost", type: "button", title: t("set.importTitle"),
       onclick: () => {
-        const text = prompt("貼上匯出的外觀設定");
+        const text = prompt(t("set.importPrompt"));
         if (!text) return;
         try {
           const next = importAppearance(text);
-          patchAppearance(next).then(() => toast("外觀已套用"));
+          patchAppearance(next).then(() => toast(t("toast.appearanceApplied")));
         } catch (e) {
-          toast(e.message);
+          toast(errorText(e));
         }
       },
-    }, "匯入"),
+    }, t("set.import")),
     el("span", { class: "spacer" }),
     el("button", {
       class: "btn small ghost", type: "button",
       onclick: () => {
-        if (confirm("把外觀恢復成預設值？（背景圖片會保留在裝置上，可再選回來）")) patchAppearance(normalizeAppearance(null));
+        if (confirm(t("set.resetConfirm"))) patchAppearance(normalizeAppearance(null));
       },
-    }, "恢復預設"));
+    }, t("set.reset")));
 
   $("#appearance").replaceChildren(
-    sgroup("外觀", [
-      seg("主題", "theme", [["system", "系統"], ["light", "淺色"], ["dark", "深色"]]),
-      srow("強調色", swatches, { stack: true }),
-      seg("背景", "background", [["plain", "純色"], ["tint", "色調"], ["image", "圖片"]]),
+    sgroup(t("set.appearance"), [
+      seg(t("set.theme"), "theme", [["system", t("theme.system")], ["light", t("theme.light")], ["dark", t("theme.dark")]]),
+      srow(t("set.accent"), swatches, { stack: true }),
+      seg(t("set.background"), "background", [["plain", t("bg.plain")], ["tint", t("bg.tint")], ["image", t("bg.image")]]),
       file, ...imageRows,
     ]),
-    sgroup("版面", [
-      seg("密度", "density", [["comfortable", "舒適"], ["compact", "緊湊"]]),
-      seg("字級", "fontSize", [["s", "小"], ["m", "中"], ["l", "大"]]),
-      range("圓角", "radius", 4, 20, "px"),
-      seg("任務欄數", "columns", [["auto", "自動"], ["2", "2"], ["3", "3"], ["4", "4"]]),
+    sgroup(t("set.layout"), [
+      seg(t("set.density"), "density", [["comfortable", t("density.comfortable")], ["compact", t("density.compact")]]),
+      seg(t("set.fontSize"), "fontSize", SIZES()),
+      range(t("set.radius"), "radius", 4, 20, "px"),
+      seg(t("set.columns"), "columns", [["auto", t("columns.auto")], ["2", "2"], ["3", "3"], ["4", "4"]]),
     ]),
-    sgroup("Top 與頁首", [
-      seg("Top 圖示", "pinSize", [["s", "小"], ["m", "中"], ["l", "大"]]),
-      toggle("顯示網站名稱", "pinLabels"),
-      toggle("問候語", "greeting", "依時段顯示早安、午安…"),
-      toggle("時鐘", "clock"),
+    sgroup(t("set.pinHeader"), [
+      seg(t("set.pinSize"), "pinSize", SIZES()),
+      toggle(t("set.pinLabels"), "pinLabels"),
+      toggle(t("set.greeting"), "greeting", t("set.greetingHint")),
+      toggle(t("set.clock"), "clock"),
     ], footer));
 }
+
+// ---------- search (D-030) ----------
+//
+// Top, task pages, Inbox and unfiled open tabs; Archive is left out. Enter follows the click settings,
+// except that something already open is always switched to. ⌘/Ctrl opens a second copy in the
+// background (to compare), ⌘⇧ a second copy in front, middle-click a copy in the background.
+// IME: nothing filters or opens while a composition is in progress (注音/拼音 Enter picks a word).
+
+const q = $("#q");
+let results = [];
+let active = 0;
+
+const marked = (s, rs) => highlight(s, rs).map((p) => (p.hit ? el("mark", {}, p.text) : p.text));
+
+function whereTag(r) {
+  if (r.kind === "tab") return el("span", { class: "where tab" }, t("search.openTab"));
+  const swatch = r.kind === "task" && r.taskId ? el("span", { class: "swatch", style: `background:${GROUP_COLORS[colorFor(r.label)]}` }) : null;
+  const label = placeLabel(r.kind, r.label);
+  return el("span", { class: "where", title: label }, swatch, label);
+}
+
+function setActive(i) {
+  const rows = $("#results").querySelectorAll(".result");
+  if (!rows.length) return;
+  active = (i + rows.length) % rows.length;
+  rows.forEach((row, k) => {
+    row.classList.toggle("active", k === active);
+    row.setAttribute("aria-selected", String(k === active));
+  });
+  q.setAttribute("aria-activedescendant", rows[active].id);
+  rows[active].scrollIntoView({ block: "nearest" });
+}
+
+function renderSearch({ keepActive = true } = {}) {
+  const panel = $("#results");
+  const show = !!state && document.activeElement === q && tokenize(q.value).length > 0;
+  panel.hidden = !show;
+  q.setAttribute("aria-expanded", String(show));
+  if (!show) {
+    results = [];
+    q.removeAttribute("aria-activedescendant");
+    return;
+  }
+  results = search(searchEntries(state.model, state.openTabs), q.value);
+  if (!keepActive) active = 0;
+  if (!results.length) {
+    panel.replaceChildren(el("p", { class: "results-empty" }, t("search.none")));
+    return;
+  }
+  const rows = results.map((r, i) => el("li", {
+    class: "result",
+    id: `result-${i}`,
+    role: "option",
+    "aria-disabled": r.openable ? null : "true",
+    onmousedown: (ev) => ev.preventDefault(), // keep focus (and the list) in the search box
+    onmousemove: () => i !== active && setActive(i),
+    onclick: (ev) => openResult(r, ev),
+    onauxclick: (ev) => ev.button === 1 && openResult(r, ev),
+  },
+  favicon(r.iconPage ?? r.url),
+  el("span", { class: "text" },
+    el("span", { class: "t" }, marked(r.title, r.titleRanges)),
+    el("span", { class: "u" }, marked(r.shownUrl, r.urlRanges))),
+  r.openTabId != null && r.kind !== "tab" ? el("span", { class: "dot", title: t("ui.open") }) : null,
+  whereTag(r)));
+  panel.replaceChildren(
+    el("ul", {}, rows),
+    el("div", { class: "results-foot" },
+      el("span", {}, el("kbd", {}, "↑↓"), " ", t("search.pick")),
+      el("span", {}, el("kbd", {}, "Enter"), " ", t("search.open")),
+      el("span", {}, el("kbd", {}, "⌘ Enter"), " ", t("search.copyBg")),
+      el("span", {}, el("kbd", {}, "⌘⇧ Enter"), " ", t("search.copyFront")),
+      el("span", {}, el("kbd", {}, "Esc"), " ", t("search.clear"))));
+  setActive(Math.min(active, results.length - 1));
+}
+
+function openResult(r, ev) {
+  if (!r?.openable) return toast(t("err.bookmarklet"));
+  const copy = ev.button === 1 || ev.metaKey || ev.ctrlKey;
+  const front = copy && ev.shiftKey && ev.button !== 1;
+  const group = r.kind === "top" ? "top" : null;
+  if (copy) {
+    const msg = front ? null : t("toast.copyBg", { title: r.title });
+    if (r.kind === "tab") return run(() => actions.duplicateTab(r.id, { background: !front }), msg);
+    return run(() => actions.openItem(r.id, {
+      selfTabId: front ? leaving() : null, taskId: r.taskId, group, background: !front, duplicate: true,
+    }), msg);
+  }
+  if (r.kind === "tab") return run(() => actions.switchToTab(r.id, { selfTabId: leaving() }));
+  // Already open: go there, whatever the click setting (opening in the background would do nothing).
+  const bg = r.openTabId == null && stayMode();
+  return run(() => actions.openItem(r.id, { selfTabId: leaving(), taskId: r.taskId, group, background: bg }), openedMsg(bg, r.title));
+}
+
+q.addEventListener("input", (ev) => {
+  if (ev.isComposing) return;
+  renderSearch({ keepActive: false });
+});
+q.addEventListener("compositionend", () => renderSearch({ keepActive: false }));
+q.addEventListener("focus", () => renderSearch());
+q.addEventListener("blur", () => renderSearch());
+q.addEventListener("keydown", (ev) => {
+  // keyCode 229: Chrome's "IME is handling this key", also sent for the Enter that confirms a word.
+  if (ev.isComposing || ev.keyCode === 229) return;
+  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+    ev.preventDefault();
+    setActive(active + (ev.key === "ArrowDown" ? 1 : -1));
+  } else if (ev.key === "Enter") {
+    ev.preventDefault();
+    if (results[active]) openResult(results[active], ev);
+  } else if (ev.key === "Escape") {
+    ev.preventDefault();
+    if (q.value) {
+      q.value = "";
+      renderSearch({ keepActive: false });
+    } else q.blur();
+  }
+});
 
 // ---------- render loop ----------
 
 function render() {
   const { model, settings, openTabs, now, movedToArchive } = state;
+  setLanguage(settings.language);
+  setDrawerSides(settings.drawers);
+  renderDrawerSides();
   tickClock();
   // Do not overwrite a field the user is typing in (renders happen on any bookmark/tab event).
   if (document.activeElement !== $("#rootTitle")) $("#rootTitle").value = settings.rootTitle;
   if (document.activeElement !== $("#archiveDays")) $("#archiveDays").value = settings.archiveDays;
   const missing = Object.entries(model.folders).filter(([, v]) => !v).map(([k]) => ROLE_LABELS[k] ?? k);
   const complete = !!model.root && missing.length === 0;
-  $("#structureInfo").textContent = !model.root ? `書籤裡找不到「${settings.rootTitle}」`
-    : missing.length ? `缺少：${missing.join("、")}`
-      : model.extras.length ? `另有 ${model.extras.length} 個項目不屬於任何區塊，會被忽略` : "Top、Groups、Inbox、Archive 都在";
+  $("#structureInfo").textContent = !model.root ? t("structure.noRoot", { name: settings.rootTitle })
+    : missing.length ? t("structure.missing", { list: missing.join(t("list.sep")) })
+      : model.extras.length ? t("structure.extras", { n: model.extras.length }) : t("structure.all");
   $("#structureOk").hidden = !complete;
   $("#ensure").hidden = complete;
   renderOpenMode(settings.openMode);
@@ -1051,12 +1342,13 @@ function render() {
   const parts = model.root
     ? [renderMissingRoles(model), renderTop(model), renderTasks(model, now), renderInbox(model, settings, now)]
     : [renderNoRoot(settings, state.candidates)];
-  if (model.warnings.length) parts.push(el("p", { class: "warnings" }, model.warnings.join("；")));
+  if (model.warnings.length) parts.push(el("p", { class: "warnings" }, model.warnings.map((w) => t(w.key, w.params)).join(t("warn.sep"))));
   app.replaceChildren(...parts.filter(Boolean));
   $("#tabsCount").textContent = String(openTabs.length);
-  $("#tabsBody").replaceChildren(renderOpenTabs(openTabs, model) ?? emptyState("tabs", "沒有其他開著的分頁。"));
+  $("#tabsBody").replaceChildren(renderOpenTabs(openTabs, model) ?? emptyState("tabs", t("tabs.empty")));
   renderDrawer();
-  if (movedToArchive) toast(`${movedToArchive} 個 Inbox 項目已到期，移到 Archive`);
+  renderSearch();
+  if (movedToArchive) toast(t("toast.autoArchived", { n: movedToArchive }));
 }
 
 let renderTimer = null;
@@ -1074,7 +1366,7 @@ async function reload() {
     render();
   } catch (e) {
     console.error(e);
-    $("#app").replaceChildren(el("p", { class: "empty" }, `載入失敗：${e?.message ?? e}`));
+    $("#app").replaceChildren(el("p", { class: "empty" }, t("ui.loadFailed", { error: errorText(e) })));
   } finally {
     rendering = false;
     if (again) {
@@ -1115,38 +1407,29 @@ function scheduleRender(delay = 150) {
 // things without an event reaching this page.
 // Chrome's "bookmarks bar only on the new tab page" does not apply once CairnTab is the new tab
 // page, and many people keep the bar hidden; the drawer shows the whole tree instead.
-$("#bookmarksBtn").addEventListener("click", () => setDrawer(!isOpen("#drawer")));
-$("#drawerClose").addEventListener("click", () => setDrawer(false));
+$("#bookmarksBtn").addEventListener("click", () => setView("bookmarks"));
+$("#drawerClose").addEventListener("click", () => setView("bookmarks", false));
 $("#managerBtn").addEventListener("click", (ev) =>
   run(() => actions.openBookmarkManager({ selfTabId: wantsBackground(ev) ? null : leaving() })));
 $("#refreshBtn").addEventListener("click", async () => {
   await reload();
-  toast("已重新整理");
+  toast(t("toast.refreshed"));
 });
-// Right panel (D-018): open tabs by default, settings swap in while open and give the slot back.
-// `sideBase` is what the panel shows when settings are not open: "tabs" or null (collapsed).
-// Closed by default: on most windows an open drawer covers part of the page (D-020).
-let sideBase = pref.get("side.base", null);
-let sideMode = null;
-
-function setSide(mode) {
-  if (mode && narrow() && isOpen("#drawer")) setDrawer(false);
-  sideMode = mode;
-  showPanel($("#side"), !!mode);
-  $("#tabsView").hidden = mode !== "tabs";
-  $("#settings").hidden = mode !== "settings";
-  $("#tabsBtn").setAttribute("aria-expanded", String(mode === "tabs"));
-  $("#settingsBtn").setAttribute("aria-expanded", String(mode === "settings"));
-}
-function setSideBase(base) {
-  sideBase = base;
-  pref.set("side.base", base);
-  setSide(base);
-}
-$("#tabsBtn").addEventListener("click", () => setSideBase(sideMode === "tabs" ? null : "tabs"));
-$("#tabsClose").addEventListener("click", () => setSideBase(null));
-$("#settingsBtn").addEventListener("click", () => setSide(sideMode === "settings" ? sideBase : "settings"));
-$("#settingsClose").addEventListener("click", () => setSide(sideBase));
+// Drawers start closed unless they were open last time: on most windows an open drawer covers part
+// of the page (D-020).
+$("#tabsBtn").addEventListener("click", () => setView("tabs"));
+$("#tabsClose").addEventListener("click", () => setView("tabs", false));
+$("#settingsBtn").addEventListener("click", () => setView("settings"));
+$("#settingsClose").addEventListener("click", () => setView("settings", false));
+$("#drawerSides").addEventListener("click", (ev) => {
+  const side = ev.target.closest("button")?.dataset.side;
+  const view = ev.target.closest("[data-view]")?.dataset.view;
+  if (!side || !view || drawerSides[view] === side) return;
+  const next = { ...drawerSides, [view]: side };
+  setDrawerSides(next);
+  renderDrawerSides();
+  run(() => actions.saveSettings({ drawers: next }), t("toast.saved"));
+});
 
 // Single-key shortcuts for the header buttons (D-021). Plain letters, Gmail-style: this page owns its
 // keys, so they cannot clash with Chrome's (which all use ⌘/Ctrl/Alt). Ignored while typing in a field
@@ -1155,6 +1438,12 @@ const SHORTCUTS = { b: "#bookmarksBtn", t: "#tabsBtn", r: "#refreshBtn", s: "#se
 document.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || e.defaultPrevented) return;
   if (e.target.closest?.("input, select, textarea, [contenteditable]")) return;
+  if (e.key === "/") {
+    e.preventDefault();
+    q.focus();
+    q.select();
+    return;
+  }
   const sel = SHORTCUTS[e.key.toLowerCase()];
   if (!sel) return;
   e.preventDefault();
@@ -1165,49 +1454,47 @@ document.addEventListener("keydown", (e) => {
 // only delivers keys to a new tab page after it has been clicked once (the address bar has focus).
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape" || e.defaultPrevented || e.target.closest?.("input, select, textarea")) return;
-  if (!isOpen("#drawer") && !isOpen("#side")) return;
-  setDrawer(false);
-  setSideBase(null);
+  if (!Object.values(SLOTS).some((s) => $(s).classList.contains("open"))) return;
+  closeAllDrawers();
 });
 function renderOpenMode(mode) {
   for (const b of document.querySelectorAll("#openMode button")) b.setAttribute("aria-pressed", String(b.dataset.mode === mode));
-  $("#openModeHint").textContent = mode === "stay"
-    ? "在背景開新分頁，CairnTab 留著，可以連開好幾個。⌘ 點擊則切過去。"
-    : "點了就切到網頁。⌘ 點擊則在背景開、留在這頁。";
+  $("#openModeHint").textContent = t(mode === "stay" ? "openMode.hintStay" : "openMode.hintSwitch");
 }
 function renderCloseOnSwitch(on) {
   $("#closeOnSwitch").checked = on;
-  $("#closeOnSwitchHint").textContent = on
-    ? "這個分頁直接變成網頁，不會越開越多。"
-    : "網頁開在新分頁，CairnTab 留在原處，之後可以切回來。";
+  $("#closeOnSwitchHint").textContent = t(on ? "closeOnSwitch.hintOn" : "closeOnSwitch.hintOff");
 }
-const INBOX_SORT_HINTS = {
-  expiring: "最快被封存的在最上面。",
-  newest: "剛存進來的在最上面。",
-  manual: "照書籤順序，可拖曳排序。",
-};
+const INBOX_SORT_HINTS = { expiring: "sort.hintExpiring", newest: "sort.hintNewest", manual: "sort.hintManual" };
 function renderInboxSort(mode) {
   for (const b of document.querySelectorAll("#inboxSort button")) b.setAttribute("aria-pressed", String(b.dataset.sort === mode));
-  $("#inboxSortHint").textContent = INBOX_SORT_HINTS[mode] ?? "";
+  $("#inboxSortHint").textContent = INBOX_SORT_HINTS[mode] ? t(INBOX_SORT_HINTS[mode]) : "";
 }
+$("#language").addEventListener("click", (ev) => {
+  const setting = ev.target.closest("button")?.dataset.lang;
+  if (!setting || setting === state?.settings?.language) return;
+  setLanguage(setting);
+  run(() => actions.saveSettings({ language: setting }), t("toast.language"));
+});
+
 $("#inboxSort").addEventListener("click", (ev) => {
   const mode = ev.target.closest("button")?.dataset.sort;
   if (!mode || mode === state?.settings?.inboxSort) return;
   renderInboxSort(mode);
-  run(() => actions.saveSettings({ inboxSort: mode }), "Inbox 排序已更新");
+  run(() => actions.saveSettings({ inboxSort: mode }), t("toast.inboxSort"));
 });
 
 $("#closeOnSwitch").addEventListener("change", (ev) => {
   renderCloseOnSwitch(ev.target.checked);
   run(() => actions.saveSettings({ closeOnSwitch: ev.target.checked }),
-    ev.target.checked ? "切過去時會關掉 CairnTab" : "切過去時會保留 CairnTab");
+    t(ev.target.checked ? "toast.closeOnSwitchOn" : "toast.closeOnSwitchOff"));
 });
 
 $("#openMode").addEventListener("click", (ev) => {
   const mode = ev.target.closest("button")?.dataset.mode;
   if (!mode || mode === state?.settings?.openMode) return;
   renderOpenMode(mode);
-  run(() => actions.saveSettings({ openMode: mode }), mode === "stay" ? "點擊後會留在 CairnTab" : "點擊後會切到網頁");
+  run(() => actions.saveSettings({ openMode: mode }), t(mode === "stay" ? "toast.stayOn" : "toast.stayOff"));
 });
 
 // Folder settings save on change (Enter / leaving the field), like the appearance controls.
@@ -1215,9 +1502,9 @@ for (const id of ["#rootTitle", "#archiveDays"]) {
   $(id).addEventListener("change", () => run(() => actions.saveSettings({
     rootTitle: $("#rootTitle").value,
     archiveDays: $("#archiveDays").value,
-  }), "已儲存"));
+  }), t("toast.saved")));
 }
-$("#ensure").addEventListener("click", () => run(() => actions.ensureStructure(), "已建立缺少的資料夾"));
+$("#ensure").addEventListener("click", () => run(() => actions.ensureStructure(), t("toast.rolesCreated")));
 
 const listen = (ev) => ev?.addListener?.(() => scheduleRender());
 for (const name of ["onCreated", "onRemoved", "onChanged", "onMoved", "onChildrenReordered", "onImportEnded"]) {
@@ -1245,6 +1532,7 @@ for (const id of ["#drawerClose", "#tabsClose", "#settingsClose"]) $(id).replace
 const version = chrome.runtime?.getManifest?.()?.version;
 if (version) $("#version").textContent = `v${version}`;
 await loadWallpaper().catch(() => null);
+applyStaticText();
 applyAppearance(await actions.readAppearance().catch(() => null));
 renderAppearance();
 // The clock only needs minutes; a hidden page skips ticks and catches up on becoming visible.
@@ -1252,6 +1540,6 @@ setInterval(() => document.hidden || tickClock(), 15_000);
 document.addEventListener("visibilitychange", () => document.hidden || tickClock());
 
 selfTabId = (await chrome.tabs.getCurrent?.())?.id ?? null;
-if (pref.get("drawer.open", false)) setDrawer(true);
-setSide(sideBase);
+applyDrawers();
+renderDrawerSides();
 await reload();

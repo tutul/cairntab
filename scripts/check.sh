@@ -30,4 +30,21 @@ if grep -nE '\bchrome\.[a-z]|\bdocument\.|\bwindow\.[a-z]' extension/lib/*.js | 
   fail=1
 fi
 
+# UI text lives only in extension/locales (D-033): no CJK text in code or HTML anywhere else.
+# Comment lines are skipped; locales/, _locales/ and the generated hanzi table are exempt.
+# Node rather than grep -P, which BSD grep (macOS) does not have.
+node --input-type=module -e '
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+const exempt = /^extension\/(locales\/|_locales\/|lib\/hanzi-data\.js$)/;
+const cjk = /[\u3400-\u9fff\uff01-\uff5e\u3000-\u303f]/;
+const comment = /^\s*(\/\/|\/?\*|<!--)/;
+const walk = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
+const bad = walk("extension").filter((f) => /\.(js|html)$/.test(f) && !exempt.test(f))
+  .flatMap((f) => readFileSync(f, "utf8").split("\n").map((l, i) => [f, i + 1, l]))
+  .filter(([, , l]) => cjk.test(l) && !comment.test(l));
+for (const [f, n, l] of bad) console.error(`${f}:${n}: ${l.trim()}`);
+if (bad.length) { console.error("UI text outside extension/locales — add a dictionary key instead (D-033)"); process.exit(1); }
+' || fail=1
+
 exit $fail

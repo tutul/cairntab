@@ -2,6 +2,8 @@
 // chrome.storage.local, which caps at 10 MB without `unlimitedStorage`. Losing it only brings back
 // the plain background. Images are downscaled on the way in so a 20 MB photo does not stay 20 MB.
 
+import { UserError } from "./lib/i18n.js";
+
 const DB = "cairntab";
 const STORE = "files";
 const KEY = "wallpaper";
@@ -35,7 +37,7 @@ export const clearWallpaper = () => tx("readwrite", (s) => s.delete(KEY));
 
 /** Downscale to MAX_EDGE on the long side and store as JPEG. Returns the stored Blob. */
 export async function setWallpaper(file) {
-  if (!file?.type?.startsWith("image/")) throw new Error("請選擇圖片檔");
+  if (!file?.type?.startsWith("image/")) throw new UserError("err.notImage");
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
   const canvas = new OffscreenCanvas(Math.round(bitmap.width * scale), Math.round(bitmap.height * scale));

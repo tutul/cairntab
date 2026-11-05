@@ -89,7 +89,7 @@ test("task folder deleted meanwhile -> the page still opens, just without a grou
 
 test("bookmarklets are refused with a readable message", async () => {
   const { actions, id } = setup();
-  await assert.rejects(actions.openItem(id("點餅乾")), /無法從擴充開啟/);
+  await assert.rejects(actions.openItem(id("點餅乾")), /err\.bookmarklet/);
 });
 
 test("openTask opens only the missing pages and groups them", async () => {
@@ -162,22 +162,22 @@ test("pinTab bookmarks into Top and keeps the tab open, once", async () => {
   assert.equal(top.childIds.filter((c) => chrome._nodes.get(c).title === "Figma").length, 1);
   const view = await actions.load({ selfTabId: 1 });
   assert.equal(view.untracked.some((t) => t.id === 9), false, "a pinned tab is no longer 'other'");
-  assert.equal(chrome._groups.get(chrome._tabs.get(9).groupId).title, "Top Pin");
+  assert.equal(chrome._groups.get(chrome._tabs.get(9).groupId).title, "Cairn Pin");
 });
 
-// ---------- Top Pin group ----------
+// ---------- Cairn Pin group ----------
 
-test("pins open into one 'Top Pin' tab group", async () => {
+test("pins open into one 'Cairn Pin' tab group", async () => {
   const { chrome, actions, id } = setup();
   await actions.openItem(id("GitHub"), { group: "top", background: true });
   await actions.openItem(id("ChatGPT"), { group: "top", background: true });
   const groups = [...chrome._groups.values()];
-  assert.deepEqual(groups.map((g) => g.title), ["Top Pin"]);
+  assert.deepEqual(groups.map((g) => g.title), ["Cairn Pin"]);
   assert.equal([...chrome._tabs.values()].filter((t) => t.groupId === groups[0].id).length, 2);
   assert.equal((await actions.load()).model.topGroupId, groups[0].id);
 });
 
-test("an already-open pin is focused, not pulled into the Top Pin group", async () => {
+test("an already-open pin is focused, not pulled into the Cairn Pin group", async () => {
   const { chrome, actions, id, selfTabId } = setup({ tabs: [{ id: 5, url: "https://github.com/", groupId: -1 }] });
   await actions.openItem(id("GitHub"), { selfTabId, group: "top" });
   assert.equal(chrome._tabs.get(5).groupId, -1);
@@ -194,7 +194,7 @@ test("Top folder deleted meanwhile -> the pin still opens, just ungrouped", asyn
   assert.equal(chrome._groups.size, 0);
 });
 
-test("closeTop closes only the Top Pin group's tabs", async () => {
+test("closeTop closes only the Cairn Pin group's tabs", async () => {
   const { chrome, actions, id } = setup();
   await actions.openItem(id("GitHub"), { group: "top", background: true });
   await actions.openItem(id("Linear"), { taskId: id("Weekly 週報"), background: true });
@@ -257,7 +257,7 @@ test("moveItem into a task deleted meanwhile -> Gone, bookmark stays put", async
 
 test("moveItem refuses folders", async () => {
   const { actions, id } = setup();
-  await assert.rejects(actions.moveItem(id("子資料夾"), { role: "top" }), /只能移動網頁書籤/);
+  await assert.rejects(actions.moveItem(id("子資料夾"), { role: "top" }), /err\.onlyPages/);
 });
 
 // ---------- archive ----------
@@ -321,7 +321,7 @@ test("ensureStructure builds everything from nothing", async () => {
   const { chrome, actions } = setup({ tree: null });
   await actions.ensureStructure();
   const pin = chrome._findBookmark("CairnTab");
-  assert.deepEqual(pin.childIds.map((c) => chrome._nodes.get(c).title), ["Top", "Groups", "Inbox", "Archive"]);
+  assert.deepEqual(pin.childIds.map((c) => chrome._nodes.get(c).title), ["Pin", "Groups", "Inbox", "Archive"]);
 });
 
 test("metadata for deleted bookmarks and closed tabs is garbage-collected", async () => {
@@ -350,7 +350,7 @@ test("a folded task stays folded across renders, and the flag is dropped with th
   await actions.setCollapsed("loose", true);
   let view = await actions.load();
   assert.equal(view.model.tasks.find((t) => t.id === task).collapsed, true);
-  assert.equal(view.model.tasks.find((t) => t.loose).collapsed, true, "未分組 can fold too");
+  assert.equal(view.model.tasks.find((t) => t.loose).collapsed, true, "the loose task can fold too");
   await chrome.bookmarks.removeTree(task);
   view = await actions.load();
   const meta = await actions.store.read();
@@ -446,7 +446,7 @@ test("adoptFolder turns an existing folder into a task", async () => {
 test("adoptFolder refuses folders that hold the structure together", async () => {
   const { actions, id } = setup();
   for (const title of ["CairnTab", "Groups", "Top", "Bookmarks bar"]) {
-    await assert.rejects(actions.adoptFolder(id(title)), /不能變成任務|Groups/, title);
+    await assert.rejects(actions.adoptFolder(id(title)), /err\.(cantAdopt|containsGroups)/, title);
   }
 });
 
@@ -495,7 +495,7 @@ test("renameItem changes the bookmark title, trims it, refuses empty names", asy
   const gh = id("GitHub");
   assert.deepEqual(await actions.renameItem(gh, "  GH  "), { changed: true });
   assert.equal(chrome._nodes.get(gh).title, "GH");
-  await assert.rejects(actions.renameItem(gh, "   "), /不能是空的/);
+  await assert.rejects(actions.renameItem(gh, "   "), /err\.nameEmpty/);
   assert.equal(chrome._nodes.get(gh).title, "GH");
 });
 
@@ -632,4 +632,46 @@ test("default root folder is called CairnTab and ensureStructure creates it", as
   const view = await actions.load({});
   assert.equal(view.model.root.title, "CairnTab");
   assert.ok(chrome._findBookmark("Inbox"));
+});
+
+// ---------- search opens (D-030) ----------
+
+test("duplicate opens a second copy even when the page is already open", async () => {
+  const { chrome, actions, id } = setup({ tabs: [{ id: 5, url: "https://github.com/" }] });
+  const r = await actions.openItem(id("GitHub"), { selfTabId: null, background: true, duplicate: true });
+  assert.equal(r.focused, false);
+  assert.equal(tabUrls(chrome).filter((u) => u === "https://github.com/").length, 2);
+});
+
+test("switchToTab focuses the tab and gives up the new tab page", async () => {
+  const { chrome, actions, selfTabId } = setup({ tabs: [{ id: 5, url: "https://news.example/" }] });
+  await actions.switchToTab(5, { selfTabId });
+  assert.equal(chrome._tabs.get(5).active, true);
+  assert.equal(chrome._tabs.has(1), false);
+});
+
+test("duplicateTab opens the same URL in a new tab; a closed tab is Gone", async () => {
+  const { chrome, actions } = setup({ tabs: [{ id: 5, url: "https://news.example/" }] });
+  await actions.duplicateTab(5, { background: true });
+  assert.equal(tabUrls(chrome).filter((u) => u === "https://news.example/").length, 2);
+  await assert.rejects(actions.duplicateTab(99), Gone);
+});
+
+test("a pins group still called 'Top Pin' (before D-033) is found and renamed", async () => {
+  const { chrome, actions, id } = setup({
+    tabs: [{ id: 9, url: "https://github.com/", groupId: 70 }],
+    groups: [{ id: 70, title: "Top Pin", color: "grey", windowId: 1 }],
+  });
+  const view = await actions.load({ selfTabId: 1 });
+  assert.equal(view.model.topGroupId, 70);
+  assert.equal(chrome._groups.get(70).title, "Cairn Pin");
+  assert.ok(id("GitHub"));
+});
+
+test("drawer sides: defaults, partial updates and junk values (D-036)", async () => {
+  const { actions } = setup();
+  assert.deepEqual((await actions.load()).settings.drawers, { tabs: "left", bookmarks: "right", settings: "right" });
+  await actions.saveSettings({ drawers: { settings: "left" } });
+  await actions.saveSettings({ drawers: { bookmarks: "up" } });
+  assert.deepEqual((await actions.load()).settings.drawers, { tabs: "left", bookmarks: "right", settings: "left" });
 });

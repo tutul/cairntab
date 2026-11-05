@@ -6,6 +6,19 @@
 import { isOpenable } from "./url.js";
 
 export const ROLES = ["top", "groups", "inbox", "archive"];
+
+/**
+ * Folder names per role, matched case-insensitively. The first name is the one CairnTab creates;
+ * the rest are older names that keep working. The pinned row's folder is "Pin" since D-035 and was
+ * "Top" before (the role key stays "top" in code and storage).
+ */
+export const ROLE_NAMES = Object.freeze({ top: ["Pin", "Top"], groups: ["Groups"], inbox: ["Inbox"], archive: ["Archive"] });
+
+/** The role a folder title stands for, or undefined. */
+export function roleOf(title) {
+  const t = normTitle(title);
+  return ROLES.find((r) => ROLE_NAMES[r].some((n) => normTitle(n) === t));
+}
 const LOOSE_TASK_ID = "loose";
 
 export function normTitle(title) {
@@ -83,10 +96,12 @@ export function allIds(tree) {
  *   root: {id,title}|null, barId: string|null,
  *   folders: {top,groups,inbox,archive: {id,title}|null},
  *   top: Item[], tasks: Task[], inbox: Item[], archive: Item[], archiveCount: number,
- *   extras: {id,title,isFolder}[], warnings: string[]
+ *   extras: {id,title,isFolder}[], warnings: {key, params}[]  (dictionary keys, D-033)
  * }}
  */
-export function buildModel(tree, { rootTitle = "CairnTab" } = {}) {
+export const DEFAULT_LABELS = Object.freeze({ loose: "Ungrouped", untitled: "(untitled)" });
+
+export function buildModel(tree, { rootTitle = "CairnTab", labels = DEFAULT_LABELS } = {}) {
   const { bar } = topLevel(tree);
   const model = {
     root: null,
@@ -106,11 +121,11 @@ export function buildModel(tree, { rootTitle = "CairnTab" } = {}) {
 
   const roleNodes = {};
   for (const c of children(root)) {
-    const role = isFolder(c) ? ROLES.find((r) => normTitle(c.title) === r) : undefined;
+    const role = isFolder(c) ? roleOf(c.title) : undefined;
     if (role && !roleNodes[role]) {
       roleNodes[role] = c;
     } else {
-      if (role) model.warnings.push(`「${c.title}」重複了，只使用第一個`);
+      if (role) model.warnings.push({ key: "warn.dupRole", params: { title: c.title } });
       model.extras.push({ id: c.id, title: c.title || c.url, isFolder: isFolder(c) });
     }
   }
@@ -128,13 +143,13 @@ export function buildModel(tree, { rootTitle = "CairnTab" } = {}) {
   const loose = [];
   for (const c of children(groups)) {
     if (isFolder(c)) {
-      model.tasks.push({ id: c.id, title: (c.title ?? "").trim() || "（未命名）", loose: false, items: flatten(c) });
+      model.tasks.push({ id: c.id, title: (c.title ?? "").trim() || labels.untitled, loose: false, items: flatten(c) });
     } else {
       loose.push(toItem(c));
     }
   }
   if (loose.length) {
-    model.tasks.push({ id: LOOSE_TASK_ID, title: "未分組", loose: true, items: loose });
+    model.tasks.push({ id: LOOSE_TASK_ID, title: labels.loose, loose: true, items: loose });
   }
   return model;
 }
@@ -151,7 +166,6 @@ export function allItems(model) {
  * Bar first, then Other bookmarks, then the rest, in tree order; at most `limit`.
  */
 export function findCandidateRoots(tree, { exclude = "", limit = 3 } = {}) {
-  const roles = new Set(ROLES);
   const skip = normTitle(exclude);
   const { root, bar, other } = topLevel(tree);
   const out = [];
@@ -159,7 +173,7 @@ export function findCandidateRoots(tree, { exclude = "", limit = 3 } = {}) {
   const visit = (n, path) => {
     if (!isFolder(n) || seen.has(n.id)) return;
     seen.add(n.id);
-    const roleKids = children(n).filter((c) => isFolder(c) && roles.has(normTitle(c.title)));
+    const roleKids = children(n).filter((c) => isFolder(c) && roleOf(c.title));
     if (n !== root && n.title && normTitle(n.title) !== skip && roleKids.length >= 2) {
       out.push({ id: n.id, title: n.title, path, roles: roleKids.map((c) => c.title) });
     }

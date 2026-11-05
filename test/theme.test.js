@@ -37,11 +37,11 @@ test("themeTokens maps settings to attrs and vars", () => {
 });
 
 test("greetingFor covers the whole day", () => {
-  assert.equal(greetingFor(7), "早安");
-  assert.equal(greetingFor(12), "午安");
-  assert.equal(greetingFor(15), "下午好");
-  assert.equal(greetingFor(20), "晚上好");
-  assert.equal(greetingFor(2), "夜深了");
+  assert.equal(greetingFor(7), "greet.morning");
+  assert.equal(greetingFor(12), "greet.noon");
+  assert.equal(greetingFor(15), "greet.afternoon");
+  assert.equal(greetingFor(20), "greet.evening");
+  assert.equal(greetingFor(2), "greet.night");
   for (let h = 0; h < 24; h++) assert.ok(greetingFor(h));
 });
 
@@ -56,6 +56,6 @@ test("dominantColor ignores grey, transparent and black pixels", () => {
 test("export → import round-trips; foreign JSON is refused", () => {
   const a = { ...DEFAULT_APPEARANCE, accent: "#123456", radius: 6, background: "tint" };
   assert.deepEqual(importAppearance(exportAppearance(a)), a);
-  assert.throws(() => importAppearance("{}"), /CairnTab/);
-  assert.throws(() => importAppearance("nope"), /JSON/);
+  assert.throws(() => importAppearance("{}"), /err\.importNotCairn/);
+  assert.throws(() => importAppearance("nope"), /err\.importJson/);
 });

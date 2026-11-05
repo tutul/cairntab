@@ -17,6 +17,10 @@ Breaking any of these makes the extension worse than not having it:
 4. **Losing `chrome.storage.local` loses only conveniences.** Nothing the user cares about lives
    only there.
 5. **`extension/lib/` stays pure** (no `chrome.*`, no DOM) — `make check` enforces it.
+6. **UI text lives only in `extension/locales/`** (`zh-Hant.js`, `en.js`, same keys — tested). Code uses
+   `t("key")`; actions and lib throw `UserError("err.…")`. `make check` fails on CJK text anywhere
+   else outside comments. Bookmark folder names (`Pin` — or the older `Top` —, `Groups`, `Inbox`, `Archive`) are data and
+   are never translated (D-033).
 
 ## Commands
 
@@ -51,18 +55,18 @@ Load in Chrome: `chrome://extensions` → Developer mode → Load unpacked → `
 | Text in dark mode sits on muddy grey boxes | that is a text selection; a 12% accent tint is invisible as "selected" on the dark palette | `::selection` uses a 32% accent mix; controls are `user-select: none` |
 | A preview screenshot shows half-light, half-dark cards | it was taken during the .25s theme transition | wait ~1s or screenshot again before judging |
 
-## Current state (2026-11-04)
+## Current state (2026-11-05)
 
-- v0.1.0, public, load-unpacked only; UI in Traditional Chinese. 90 tests (`make ci`); every UI
+- v0.1.0, public, load-unpacked only; UI in Traditional Chinese and English (D-033). 107 tests (`make ci`); every UI
   change is also checked in `dev/preview.html`.
-- Verified in real Chrome: tab groups (tasks, Top Pin), favicons, drag and drop, drawers. Not
+- Verified in real Chrome: tab groups (tasks, Cairn Pin), favicons, drag and drop, drawers. Not
   formally tested: recovering task groups by title after a Chrome restart.
-- Feature set: Top pins (× archive, ✎ rename, reorder), tasks (fold, rename incl. tab group, open one
-  / all, 收起), Inbox with configurable archive days and Archive view, bookmark drawer (left), open-tabs
-  drawer (right, closed by default) with multi-select, settings in the right drawer, click behaviour
+- Feature set: search bar (D-030/031), Pin row (the `Top` folder) (× archive, ✎ rename, reorder), tasks (fold, rename incl. tab group, open one
+  / all, 收起), Inbox with configurable archive days and Archive view, bookmark and open-tabs drawers (side per
+  setting, D-036) with multi-select, settings in the right drawer, click behaviour
   (switch / stay, keep CairnTab), B/T/R/S/Esc keys, appearance settings (D-022). Design history:
-  `docs/decisions.md` D-001…D-029.
-- Not built yet: per-task "review every N days" reminders, English UI/i18n, a Chrome Web Store
+  `docs/decisions.md` D-001…D-036.
+- Not built yet: per-task "review every N days" reminders, a Chrome Web Store
   listing. Not possible: Android (Chrome Android has no extensions; the CairnTab folder syncs anyway).
 - Apache-2.0; `NOTICE` credits the author and must ship with copies (D-026). Fixtures, demo data
   (`dev/demo.js`) and screenshots use public sites and made-up titles only; never put real profile

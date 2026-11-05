@@ -12,10 +12,10 @@ memory.
 > A *cairn* is a stack of stones that marks a trail: a place you mean to come back to.
 > CairnTab marks your tasks the same way, so the tabs themselves can be closed without worry.
 
-Created by [TuTu](https://github.com/tutul). Status: v0.1, load-unpacked only. The UI is currently
-in Traditional Chinese. Licensed under Apache-2.0 — see [License](#license).
+Created by [TuTu](https://github.com/tutul). Status: v0.1, load-unpacked only. The UI is in English
+and Traditional Chinese (settings → Language; follows the browser by default). Licensed under Apache-2.0 — see [License](#license).
 
-![CairnTab: Top pins, task cards and the Inbox](docs/screenshots/overview.png)
+![CairnTab: pins, task cards and the Inbox](docs/screenshots/overview.png)
 
 <table>
 <tr>
@@ -45,10 +45,10 @@ bookmarks.
 
 | Section | What you see | Click |
 |---|---|---|
-| **Top** | A row of up to ~12 pinned sites | Switches to the tab if it is open, otherwise opens it into a tab group called **Top Pin**. **收起** closes that group's tabs; the **×** on a pin moves it to `Archive`. Pins never stay loaded just because they are pinned. |
-| **Tasks** | One card per folder under `Groups`, with its pages, how many are open, and when you last touched it | Opens that single page into a native tab group named after the task. **全開** opens the rest; **收起** closes the task's tabs. |
-| **Inbox** | Parked pages, with age and days left before archiving. Sorted closest-to-archiving first by default; settings can switch to newest first or a manual order you drag | Opens the page. **Archive** moves it to `Archive`. Click **▸ Archive** under it to see archived pages and **移回 Inbox** (the countdown restarts). |
-| **Open tabs** (right panel) | Every open tab. Unfiled ones first; filed ones dimmed with a tag saying where they live (Top, a task, Inbox) | On hover (unfiled tabs): **加入任務…** or **Move to Inbox** (bookmark it, close the tab). Tick several (or the header box for all) to act on them at once: Move to Inbox, 加到 Top, 加入任務, 關閉分頁. Or drag onto Top, a task, or Inbox. |
+| **Pin** | A row of up to ~12 pinned sites | Switches to the tab if it is open, otherwise opens it into a tab group called **Cairn Pin**. **Close** closes that group's tabs; the **×** on a pin moves it to `Archive`. Pins never stay loaded just because they are pinned. |
+| **Tasks** | One card per folder under `Groups`, with its pages, how many are open, and when you last touched it | Opens that single page into a native tab group named after the task. **Open all** opens the rest; **Close** closes the task's tabs. |
+| **Inbox** | Parked pages, with age and days left before archiving. Sorted closest-to-archiving first by default; settings can switch to newest first or a manual order you drag | Opens the page. **Move to…** (on hover) moves it to Pin or a task without dragging. **Archive** moves it to `Archive`. Click **▸ Archive** under it to see archived pages and **Back to Inbox** (the countdown restarts). |
+| **Open tabs** (left drawer) | Every open tab. Unfiled ones first; filed ones dimmed with a tag saying where they live (Pin, a task, Inbox) | On hover (unfiled tabs): **Add to task…** or **Move to Inbox** (bookmark it, close the tab). Tick several (or the header box for all) to act on them at once: Move to Inbox, Pin, Add to task, Close tabs. Or drag onto Pin, a task, or Inbox. |
 
 Rename in place: click a task's title (its open tab group is renamed and recoloured with it), or use
 the **✎** that appears at the front of a page row / on a pin. Enter or clicking away saves, Esc
@@ -57,17 +57,17 @@ to put it before/after it — that reorders the bookmarks themselves.
 
 ### Appearance
 
-Settings (S) → 外觀 changes the look instantly, no reload (every setting, including the folder name
+Settings (S) → Appearance changes the look instantly, no reload (every setting, including the folder name
 and archive days, saves as soon as you change it): theme (system / light / dark), accent
 colour (presets or any colour), background (plain, a tint of the accent, or your own image with
-adjustable dim and blur — cards turn frosted over it), density, corner radius, font size, Top icon
-size and labels, number of task columns, and whether to show the greeting and clock. 匯出 / 匯入 copy
-the settings as JSON (the image is not included). Top icons sit on a tile tinted from their own
+adjustable dim and blur — cards turn frosted over it), density, corner radius, font size, pin icon
+size and labels, number of task columns, and whether to show the greeting and clock. Export / Import copy
+the settings as JSON (the image is not included). Pin icons sit on a tile tinted from their own
 favicon; task cards carry their tab group's colour.
 
-**書籤** opens a drawer on the left with every bookmark. Drag a bookmark from it onto Top, a task, a
-task's page (to place it there) or Inbox; drag a whole folder onto **＋ 新任務** to make it a task. The
-drawer's **管理員** button opens Chrome's bookmark manager at the `CairnTab` folder for renaming and deleting.
+**Bookmarks** opens a drawer (on the right by default) with every bookmark. Drag a bookmark from it onto Pin, a task, a
+task's page (to place it there) or Inbox; drag a whole folder onto **＋ New task** to make it a task. The
+drawer's **Manager** button opens Chrome's bookmark manager at the `CairnTab` folder for renaming and deleting.
 
 ### When does a bookmark count as "open"?
 
@@ -93,7 +93,7 @@ Everything lives in a normal bookmarks folder on the bookmarks bar:
 ```
 Bookmarks bar
 └─ CairnTab
-   ├─ Top          pinned sites (icon row)
+   ├─ Pin          pinned sites (icon row)
    ├─ Groups
    │  └─ <task>    one folder per task; subfolders are flattened
    ├─ Inbox        parked pages
@@ -102,7 +102,8 @@ Bookmarks bar
 
 - Rearrange, rename, add or delete anything in Chrome's bookmark manager at any time; the page
   updates live.
-- Folder names are case-insensitive. Anything else inside the `CairnTab` folder is left alone.
+- Folder names are case-insensitive. A pins folder named `Top` (the name before 0.2) still works;
+  new setups get `Pin`. Anything else inside the `CairnTab` folder is left alone.
 - Because it is all bookmarks, it syncs across your computers with Chrome Sync, and nothing is lost
   if you uninstall the extension.
 - The root folder name (`CairnTab` by default) can be changed in settings.
@@ -115,40 +116,53 @@ Not on the Chrome Web Store yet.
 2. Open `chrome://extensions` and turn on **Developer mode**.
 3. Click **Load unpacked** and choose the `extension/` folder.
 4. Open a new tab. When Chrome asks whether to keep the changed new tab page, choose **Keep it**.
-5. The first time, a welcome screen explains the folders and offers **建立「CairnTab」資料夾** (create
-   the folder). If you already have a folder with `Top`/`Groups`/`Inbox`/`Archive` under another name,
+5. The first time, a welcome screen explains the folders and offers **Create the “CairnTab” folder**. If you already have a folder with `Pin`/`Groups`/`Inbox`/`Archive` under another name,
    it is listed there with a button to use it instead. If the folder exists but lacks some of them,
-   click **建立缺少的資料夾**; existing items are left where they are.
+   click **Create the missing folders**; existing items are left where they are.
 
 Requires Chrome 116 or later.
 
 ## Using it
 
 - **Click** an item: focus it if open, otherwise open it in the current tab. With settings →
-  點擊網頁時 → **留在這頁**, a click instead opens it in the background and CairnTab stays in front,
-  so you can open several in a row (a toast confirms each; 全開 does the same).
+  When you click a page → **Stay here**, a click instead opens it in the background and CairnTab stays in front,
+  so you can open several in a row (a toast confirms each; Open all does the same).
 - **⌘/Ctrl-click** does whichever of the two the plain click does not; **middle-click** always opens
   in the background.
 - When a click goes to the page, CairnTab normally turns into it (or closes, if the page was already
-  open). Turn off **切過去時關掉 CairnTab** to open the page in a new tab and keep CairnTab where it is.
-- **Drag and drop**: drag an open tab onto **Top** (pin it, tab stays open), a **task** (bookmark it
+  open). Turn off **Close CairnTab when switching** to open the page in a new tab and keep CairnTab where it is.
+- **Search** (the bar under the header, or press **/**): type part of a title or URL. Spaces split
+  the query into pieces that must all appear, in any order — `github cairn` finds a GitHub page with
+  "cairn" in its title. Case, full-/half-width, Traditional vs Simplified Chinese and percent-encoded
+  URLs don't matter, so Chinese titles and Chinese URL paths match as typed — `台湾` finds 「臺灣」. It covers Pin, task pages, Inbox and open tabs that are
+  not filed (Archive is left out); a page that is already open is listed once, marked open. Best
+  matches first: title starting with the query, then all of it in the title, then URL-only matches.
+  **↑↓** to pick, **Enter** to open (as a click would; something already open is switched to),
+  **⌘/Ctrl-Enter** or **⌘-click** opens a second copy in the background (to compare two views of a
+  page), **⌘⇧-Enter** a second copy in front, **Esc** clears. While an input method is composing,
+  Enter only picks the word.
+- **Drag and drop**: drag an open tab onto **Pin** (pin it, tab stays open), a **task** (bookmark it
   there and move the tab into the task's group), **Inbox** (bookmark it and close the tab), or
-  **＋ 新任務** (name a new task and file the tab into it). Bookmarks already on the page can be
-  dragged between Top, tasks and Inbox the same way.
-- **Layout**: bookmarks drawer on the left, your CairnTab folder in the middle, open tabs on the right
-  (closed by default; open it from the header). Settings take over the right drawer while open.
-  Drawers slide over the page, so the middle column never moves; on wide windows they sit in the
-  empty margins, on narrow ones only one opens at a time. Drawers remember whether they were open.
-- **Keys**: **B** bookmarks, **T** open tabs, **R** refresh, **S** settings, **Esc** close drawers. Plain
+  **＋ New task** (name a new task and file the tab into it). Bookmarks already on the page can be
+  dragged between Pin, tasks and Inbox the same way.
+- **Layout**: open tabs drawer on the left, your CairnTab folder in the middle, bookmarks drawer and
+  settings on the right (drawers start closed; open them from the header). Settings → Drawer
+  position puts each of the three on either side. Drawers on the same side open one at a time, and
+  settings cover their side until closed. Drawers slide over the page, so the middle column never
+  moves; on narrow windows only one side opens at a time. Drawers remember whether they were open.
+- **Language**: settings → General → Language: Browser (default; Chinese for any Chinese browser
+  language, English otherwise), 中文 or English. Switches instantly. Folder names stay `Pin`,
+  `Groups`, `Inbox`, `Archive` in both, since they are your bookmarks.
+- **Keys**: **/** search, **B** bookmarks, **T** open tabs, **R** refresh, **S** settings, **Esc** close drawers. Plain
   letters, ignored while typing in a field or with ⌘/Ctrl/Alt held. Click the page once first:
   Chrome keeps keyboard focus in the address bar on a new tab.
 - **Bookmarks drawer**: open/closed and expanded folders are remembered. Chrome's
   "bookmarks bar only on the new tab page" may not apply to CairnTab; the drawer replaces it.
-- **Toolbar icon**: click it to open a new tab (CairnTab). Right-click it for **在 GitHub 查看 CairnTab**.
+- **Toolbar icon**: click it to open a new tab (CairnTab). Right-click it for **View CairnTab on GitHub**.
 - **↻**: re-read everything (useful after Chrome Sync changes bookmarks on another device).
 - **Settings drawer**: appearance, what a click does, the root folder name, after how many days
   Inbox items move to `Archive` (default 30; `0` turns archiving off), and the Inbox order:
-  **快到期** (closest to archiving first), **最新** (newest first) or **手動** (bookmark order; drag
+  **Expiring** (closest to archiving first), **Newest** or **Manual** (bookmark order; drag
   rows to reorder). The order never changes when an item is archived.
 - Bookmarklets (`javascript:` links) are shown but cannot be opened from an extension.
 
@@ -167,7 +181,7 @@ it leaves your browser.
 | `storage` | The small local record above |
 | `alarms` | Archiving expired Inbox items even on days you open no new tab |
 | `favicon` | Showing site icons from Chrome's own cache |
-| `contextMenus` | The "在 GitHub 查看 CairnTab" item in the toolbar icon's right-click menu |
+| `contextMenus` | The "View CairnTab on GitHub" item in the toolbar icon's right-click menu |
 
 ## Safety guarantees
 
@@ -179,7 +193,6 @@ it leaves your browser.
 ## Roadmap
 
 - Per-task "review every N days" reminders
-- English UI and i18n
 - A Chrome Web Store listing
 
 ## Development

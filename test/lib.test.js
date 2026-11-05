@@ -34,7 +34,7 @@ test("buildModel reads a realistic layout", async () => {
   assert.equal(m.top.length, 6);
   assert.equal(m.top[4].title, "https://www.notion.so/", "empty title falls back to URL");
   assert.equal(m.top[5].openable, false);
-  assert.deepEqual(m.tasks.map((t) => t.title), ["Weekly 週報", "crypto 研究", "空任務", "未分組"]);
+  assert.deepEqual(m.tasks.map((t) => t.title), ["Weekly 週報", "crypto 研究", "空任務", "Ungrouped"]);
   assert.equal(m.tasks[1].items.length, 2, "nested folder inside a task is flattened");
   assert.equal(m.tasks[3].loose, true);
   assert.equal(m.inbox.length, 3, "role names are case-insensitive");
@@ -72,7 +72,9 @@ test("dueItems honours the setting, 0 disables", () => {
   assert.equal(daysLeft(NOW - 28 * DAY, 30, NOW), 2);
   assert.equal(daysLeft(NOW, 0, NOW), null);
   assert.equal(ageDays(NOW - DAY - 1, NOW), 1);
-  assert.equal(relativeDay(NOW - 3 * DAY, NOW), "3 天前");
+  assert.deepEqual(relativeDay(NOW - 3 * DAY, NOW), { key: "day.ago", n: 3 });
+  assert.deepEqual(relativeDay(NOW - 1000, NOW), { key: "day.today", n: 0 });
+  assert.equal(relativeDay(null, NOW), null);
 });
 
 // ---------- tabs ----------
@@ -180,4 +182,19 @@ test("findCandidateRoots offers folders that look like a root under another name
   assert.ok(found[0].roles.includes("Top") && found[0].roles.includes("Groups"));
   assert.deepEqual(findCandidateRoots(tree, { exclude: "pin" }), [], "the configured name itself is not a candidate");
   assert.deepEqual(findCandidateRoots(await treeOf(sampleTree()), { exclude: "CairnTab" }), [], "other ordinary folders are not candidates");
+});
+
+test("the pinned row's folder is found as Pin, or by its old name Top (D-035)", async () => {
+  const tree = (names) => treeOf({ id: "0", title: "", children: [
+    { title: "Bookmarks bar", folderType: "bookmarks-bar", children: [
+      { title: "CairnTab", children: names.map((n, i) => ({ title: n, children: [{ title: `p${i}`, url: `https://example.com/${i}` }] })) },
+    ] },
+  ] });
+  const pin = buildModel(await tree(["pin", "Groups"]));
+  assert.equal(pin.folders.top.title, "pin");
+  assert.deepEqual(pin.top.map((i) => i.title), ["p0"]);
+  assert.equal(buildModel(await tree(["Top"])).folders.top.title, "Top");
+  const both = buildModel(await tree(["Pin", "Top"]));
+  assert.equal(both.folders.top.title, "Pin", "the first one wins");
+  assert.equal(both.warnings[0].key, "warn.dupRole");
 });

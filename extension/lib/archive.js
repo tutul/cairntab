@@ -21,13 +21,11 @@ export function daysLeft(dateAdded, archiveDays, now) {
   return Math.max(0, days - ageDays(dateAdded, now));
 }
 
-/** "今天", "昨天", "N 天前". */
+/** How long ago, as a dictionary key and count: today / yesterday / N days ago. null without a date. */
 export function relativeDay(ts, now) {
-  if (!ts) return "";
-  const d = ageDays(ts, now);
-  if (d === 0) return "今天";
-  if (d === 1) return "昨天";
-  return `${d} 天前`;
+  if (!ts) return null;
+  const n = ageDays(ts, now);
+  return { key: n === 0 ? "day.today" : n === 1 ? "day.yesterday" : "day.ago", n };
 }
 
 /** Inbox display orders (D-027). Only the display changes; archiving always uses the age. */

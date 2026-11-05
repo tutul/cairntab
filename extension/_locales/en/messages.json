@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "CairnTab"
+  },
+  "extDescription": {
+    "message": "Tasks stay, tabs come and go. A new tab page that turns one bookmarks folder into pins, tasks and an inbox, so reminder tabs stop eating memory."
+  },
+  "actionTitle": {
+    "message": "Open CairnTab (new tab)"
+  },
+  "menuRepo": {
+    "message": "View CairnTab on GitHub"
+  }
+}
