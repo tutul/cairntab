@@ -3,7 +3,7 @@
 
 import { daysLeft, relativeDay, sortInbox } from "./lib/archive.js";
 import { highlight, search, searchEntries, tokenize } from "./lib/search.js";
-import { colorFor } from "./lib/tabs.js";
+import { colorFor, GROUP_COLOR_NAMES } from "./lib/tabs.js";
 import { displayHost } from "./lib/url.js";
 import {
   ACCENTS, MAX_WIDTH_PRESETS, PAGE_WIDTH_STEP, accentHex, clampPageWidth, removeWidthPreset, saveWidthPreset, dominantColor, exportAppearance, greetingFor, importAppearance, normalizeAppearance, themeTokens,
@@ -265,7 +265,8 @@ function clearDropMarks() {
     .forEach((n) => n.classList.remove("drop-over", "drop-before", "drop-after"));
 }
 
-const notFolder = (p) => p.kind !== "folder";
+// Task cards (kind "task") are only ever dropped on other task cards, to reorder (D-042).
+const notFolder = (p) => p.kind !== "folder" && p.kind !== "task";
 
 function dropZone(target, accepts = notFolder) {
   return {
@@ -521,14 +522,87 @@ function itemRow(it, { taskId = null, extra = null, archivable = true, reorder =
     }, t("ui.archive")) : null);
 }
 
+/**
+ * A task card is a drop zone for tabs and bookmarks (file them into the task) and, while another
+ * task card is being dragged, a reorder target: drop on its left half to go before it, right half
+ * after (D-042).
+ */
+function withTaskReorder(task, zone) {
+  const reordering = () => dragging?.kind === "task" && dragging.id !== task.id;
+  const after = (ev) => {
+    const r = ev.currentTarget.getBoundingClientRect();
+    return ev.clientX > r.left + r.width / 2;
+  };
+  return {
+    ...zone,
+    ondragover: (ev) => {
+      if (!reordering()) return zone.ondragover?.(ev);
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = "move";
+      const a = after(ev);
+      ev.currentTarget.classList.toggle("drop-after", a);
+      ev.currentTarget.classList.toggle("drop-before", !a);
+    },
+    ondragleave: (ev) => {
+      if (dragging?.kind !== "task") return zone.ondragleave?.(ev);
+      if (!ev.currentTarget.contains(ev.relatedTarget)) ev.currentTarget.classList.remove("drop-before", "drop-after");
+    },
+    ondrop: (ev) => {
+      if (!reordering()) return zone.ondrop?.(ev);
+      ev.preventDefault();
+      ev.stopPropagation();
+      const a = after(ev);
+      const moving = dragging;
+      dragging = null;
+      document.body.classList.remove("dragging");
+      clearDropMarks();
+      run(() => actions.placeTask(moving.id, task.id, { after: a }));
+    },
+  };
+}
+
+/** The colour dot in a task header; opens a small palette of Chrome's tab group colours (D-043). */
+function colorButton(task) {
+  const pick = (color) => run(() => actions.setTaskColor(task.id, color), t("toast.colorSet"));
+  return el("span", { class: "color-pick" },
+    el("button", {
+      type: "button", class: "color-dot", title: t("task.color"), "aria-label": t("task.color"), "aria-haspopup": "true",
+      draggable: "false",
+      onclick: (ev) => {
+        const pop = ev.currentTarget.nextElementSibling;
+        const open = pop.hidden;
+        closeColorPops();
+        pop.hidden = !open;
+      },
+    }),
+    el("div", { class: "color-pop", role: "menu", hidden: true },
+      GROUP_COLOR_NAMES.map((c) => el("button", {
+        type: "button", role: "menuitemradio", class: "swatch-btn", style: `--c:${GROUP_COLORS[c]}`,
+        title: t(`color.${c}`), "aria-label": t(`color.${c}`), "aria-checked": String(task.customColor && task.color === c),
+        onclick: () => pick(c),
+      })),
+      el("button", {
+        type: "button", role: "menuitemradio", class: "btn small ghost color-auto", "aria-checked": String(!task.customColor),
+        onclick: () => pick(null),
+      }, t("task.colorAuto"))));
+}
+
+function closeColorPops() {
+  for (const p of document.querySelectorAll(".color-pop:not([hidden])")) p.hidden = true;
+}
+document.addEventListener("pointerdown", (e) => {
+  if (!e.target.closest?.(".color-pick")) closeColorPops();
+});
+document.addEventListener("keydown", (e) => e.key === "Escape" && closeColorPops());
+
 function renderTasks(model, now) {
   if (!model.folders.groups) return null;
   const cards = model.tasks.map((task) => {
-    const color = GROUP_COLORS[colorFor(task.title)];
+    const color = GROUP_COLORS[task.color ?? colorFor(task.title)];
     const meta = [el("span", {}, t("task.pages", { n: task.items.length }))];
     if (task.openCount) meta.push(el("span", { class: "chip" }, el("span", { class: "dot" }), t("task.openCount", { n: task.openCount })));
     if (task.lastOpened) meta.push(el("span", {}, t("task.last", { when: dayText(task.lastOpened, now) })));
-    const zone = task.loose ? {} : dropZone({ taskId: task.id, title: task.title });
+    const zone = task.loose ? {} : withTaskReorder(task, dropZone({ taskId: task.id, title: task.title }));
     // Folding is instant (class toggle) and only then persisted; no re-render needed.
     const fold = el("button", {
       class: "icon-btn small fold",
@@ -547,7 +621,8 @@ function renderTasks(model, now) {
       style: task.loose ? null : `--task:${color}`,
       ...zone,
     },
-      el("header", {},
+      el("header", task.loose ? {} : { class: "draggable", title: t("task.dragHint"), ...dragSource({ kind: "task", id: task.id, title: task.title }) },
+        task.loose ? null : colorButton(task),
         task.loose
           ? el("span", { class: "title", title: task.title }, task.title)
           : el("span", {
@@ -595,7 +670,7 @@ function renderTasks(model, now) {
   const newTask = el("button", {
     class: "task new-task zone",
     title: t("newTask.title"),
-    ...dropZone({ newTask: true }, () => true),
+    ...dropZone({ newTask: true }, (p) => p.kind !== "task"),
     onclick: () => {
       const name = prompt(t("newTask.prompt"));
       if (name?.trim()) run(() => actions.createTask(name), t("toast.taskCreated", { name: name.trim() }));
@@ -695,7 +770,7 @@ function renderOpenTabs(openTabs, model) {
   const placeTag = (place) => {
     const label = placeLabel(place.kind, place.label);
     return el("span", { class: `place-tag place-${place.kind}`, title: t("tabs.filedIn", { label }) },
-      place.kind === "task" ? el("span", { class: "swatch", style: `background:${GROUP_COLORS[colorFor(place.label)]}` }) : null,
+      place.kind === "task" ? el("span", { class: "swatch", style: `background:${GROUP_COLORS[place.color ?? colorFor(place.label)]}` }) : null,
       label);
   };
   const rows = ordered.map((tab) => el("li", {
@@ -1313,7 +1388,7 @@ const marked = (s, rs) => highlight(s, rs).map((p) => (p.hit ? el("mark", {}, p.
 
 function whereTag(r) {
   if (r.kind === "tab") return el("span", { class: "where tab" }, t("search.openTab"));
-  const swatch = r.kind === "task" && r.taskId ? el("span", { class: "swatch", style: `background:${GROUP_COLORS[colorFor(r.label)]}` }) : null;
+  const swatch = r.kind === "task" && r.taskId ? el("span", { class: "swatch", style: `background:${GROUP_COLORS[r.color ?? colorFor(r.label)]}` }) : null;
   const label = placeLabel(r.kind, r.label);
   return el("span", { class: "where", title: label }, swatch, label);
 }

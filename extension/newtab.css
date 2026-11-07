@@ -527,3 +527,22 @@ a.slink:hover .slabel { color: var(--accent); }
 .preset-x:hover { color: var(--text); }
 .preset-x .i { width: 12px; height: 12px; }
 .preset-add .i { width: 13px; height: 13px; }
+
+/* Task reorder (D-042): drag a card by its header; a bar marks the side it will land on. */
+.task header.draggable { cursor: grab; }
+.task header.draggable:active { cursor: grabbing; }
+.task.drop-before { box-shadow: -3px 0 0 var(--accent), var(--shadow-sm); }
+.task.drop-after { box-shadow: 3px 0 0 var(--accent), var(--shadow-sm); }
+/* Task colour (D-043): a dot in the header opens Chrome's nine tab-group colours. */
+.color-pick { position: relative; display: inline-flex; flex: none; }
+.color-dot { width: 12px; height: 12px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; background: var(--task);
+  box-shadow: 0 0 0 2px var(--panel-solid), 0 0 0 3px color-mix(in srgb, var(--task) 45%, transparent); }
+.color-dot:hover { transform: scale(1.15); }
+.color-pop { position: absolute; top: calc(100% + 8px); left: -6px; z-index: 6; display: grid; grid-template-columns: repeat(5, 22px);
+  gap: 6px; padding: 10px; background: var(--panel-solid); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md); cursor: default; }
+.color-pop[hidden] { display: none; }
+.swatch-btn { width: 22px; height: 22px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; background: var(--c); }
+.swatch-btn[aria-checked="true"] { box-shadow: 0 0 0 2px var(--panel-solid), 0 0 0 4px var(--c); }
+.color-auto { grid-column: 1 / -1; justify-content: center; font-size: 11.5px; }
+.color-auto[aria-checked="true"] { color: var(--accent); }

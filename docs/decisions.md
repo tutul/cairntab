@@ -376,3 +376,21 @@ button disabled. A chip applies its width, × removes it, and the chip matching 
 highlighted. Presets are part of the appearance object, so they are exported and imported with it.
 The presets hold width only, not whole appearance profiles: the request was about fitting screens,
 and a full profile system would duplicate export/import.
+
+**D-042 Reorder tasks by dragging cards.** 2026-11-07.
+Task cards follow the order of the folders under `Groups`, which could only be changed in the
+bookmark manager. A card's header is now a drag handle; dropping it on another card's left or right
+half moves the task folder before or after that one (`placeTask`). The bookmark order stays the one
+source of truth (invariant: bookmarks are the data), so the bookmark manager and every synced
+device show the same order, and nothing new is stored. Task drags are kept apart from filing: a card
+accepts a task only to reorder, and the Pin row, Inbox and ＋ 新任務 refuse it.
+
+**D-043 Pickable task colours, limited to tab-group colours.** 2026-11-07.
+A task's colour came from a hash of its title (`colorFor`, D-022), so it could not be chosen and changed on
+rename. The dot before the title opens a palette of Chrome's nine tab-group colours plus 自動
+(back to the title colour). Only those nine, not any colour, because the card and the task's tab
+group are meant to look the same and tab groups cannot take other colours. The pick is stored in
+`chrome.storage.local.taskColors` keyed by the task folder id (garbage-collected like the other
+metadata); losing it only brings back the title colours (invariant 4). The open tab group is
+recoloured at once, new groups and renames use the picked colour, and the open-tabs tags and search
+results use it too.

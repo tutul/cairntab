@@ -25,7 +25,7 @@ export function normalizeDrawers(raw) {
 export const DEFAULT_SETTINGS = Object.freeze({
   rootTitle: "CairnTab", archiveDays: 30, openMode: "switch", closeOnSwitch: true, inboxSort: "expiring", language: "auto", drawers: DEFAULT_DRAWERS,
 });
-const KEYS = ["settings", "lastOpened", "groupMap", "collapsed", "inboxSince", "iconPage"];
+const KEYS = ["settings", "lastOpened", "groupMap", "collapsed", "inboxSince", "iconPage", "taskColors"];
 
 export function createStore(chrome) {
   const local = chrome.storage.local;
@@ -39,6 +39,8 @@ export function createStore(chrome) {
       collapsed: got.collapsed ?? {},
       inboxSince: got.inboxSince ?? {},
       iconPage: got.iconPage ?? {},
+      // Task folder id -> picked tab-group colour (D-043). Absent = colour from the title.
+      taskColors: got.taskColors ?? {},
     };
   }
 
@@ -105,6 +107,15 @@ export function createStore(chrome) {
      * it has loaded; a bookmark URL that redirects (or came from another browser) has none and shows
      * the default globe, while the tab it opened into does. Losing this only brings the globe back.
      */
+    /** Pick a task's colour, or null to go back to the colour from its title. */
+    async setTaskColor(taskId, color) {
+      const meta = await read();
+      const next = { ...meta.taskColors };
+      if (color) next[taskId] = color;
+      else delete next[taskId];
+      await local.set({ taskColors: next });
+    },
+
     async setIconPages(updates) {
       return update("iconPage", (m) => ({ ...m, ...updates }));
     },
@@ -131,6 +142,7 @@ export function createStore(chrome) {
         collapsed: keep(meta.collapsed, (k) => ["loose", "archive"].includes(k) || validBookmarkIds.has(k)),
         inboxSince: keep(meta.inboxSince, (k) => validBookmarkIds.has(k)),
         iconPage: keep(meta.iconPage, (k) => validBookmarkIds.has(k)),
+        taskColors: keep(meta.taskColors, (k) => validBookmarkIds.has(k)),
       };
       // Write only what shrank: gc runs on every render, and an unconditional set() was one
       // storage write per render (measured 2026-11-04) for nothing.

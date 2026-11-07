@@ -3,7 +3,7 @@
 
 import { dueItems } from "../lib/archive.js";
 import { DEFAULT_LABELS, ROLE_NAMES, allIds, buildModel, findCandidateRoots, flatten, normTitle } from "../lib/model.js";
-import { colorFor, describeTabs, findOpenTab, findTaskGroup, planGroup } from "../lib/tabs.js";
+import { GROUP_COLOR_NAMES, describeTabs, findOpenTab, findTaskGroup, planGroup, taskColor } from "../lib/tabs.js";
 import { isOpenable, sameUrl } from "../lib/url.js";
 import { UserError } from "../lib/i18n.js";
 import { createStore } from "./store.js";
@@ -115,7 +115,7 @@ export function createActions(chrome, { now = () => Date.now(), labels = () => D
       }
     }
     const groupId = await chrome.tabs.group({ tabIds, createProperties: { windowId } });
-    await chrome.tabGroups.update(groupId, { title: task.title, color: colorFor(task.title) });
+    await chrome.tabGroups.update(groupId, { title: task.title, color: taskColor(task.id, task.title, meta.taskColors) });
     await store.setGroup(task.id, groupId, windowId);
     return groupId;
   }
@@ -208,6 +208,8 @@ export function createActions(chrome, { now = () => Date.now(), labels = () => D
           groupId: group?.id ?? null,
           openCount: items.filter((i) => i.openTabId != null).length,
           lastOpened: last || null,
+          color: taskColor(t.id, t.title, meta.taskColors),
+          customColor: !t.loose && GROUP_COLOR_NAMES.includes(meta.taskColors[t.id]),
         };
       });
       // Where each open tab is filed, for the "open tabs" list (D-016).
@@ -215,7 +217,7 @@ export function createActions(chrome, { now = () => Date.now(), labels = () => D
         ...model.top.map((item) => ({ item, place: { kind: "top", label: "Pin" } })),
         ...model.tasks.flatMap((task) => task.items.map((item) => ({
           item,
-          place: { kind: "task", label: task.title, taskId: task.loose ? null : task.id },
+          place: { kind: "task", label: task.title, color: task.color, taskId: task.loose ? null : task.id },
         }))),
         ...model.inbox.map((item) => ({ item, place: { kind: "inbox", label: "Inbox" } })),
       ];
@@ -512,6 +514,44 @@ export function createActions(chrome, { now = () => Date.now(), labels = () => D
      * Rename a task folder, and its open tab group with it so the two keep matching (groups are found
      * by title after a restart; a stale group title would orphan the group).
      */
+    /**
+     * Pick a task's colour (D-043): one of Chrome's tab group colours, or null for the colour from
+     * its title. The task's open tab group, if any, is recoloured too.
+     */
+    async setTaskColor(taskId, color) {
+      if (color != null && !GROUP_COLOR_NAMES.includes(color)) throw new UserError("err.badColor");
+      const task = await taskFor(taskId);
+      if (!task) throw new Gone("task");
+      await store.setTaskColor(task.id, color);
+      const meta = await store.read();
+      const group = findTaskGroup({ mapEntry: meta.groupMap[task.id], groups: await chrome.tabGroups.query({}), taskTitle: task.title });
+      if (group) {
+        try {
+          await chrome.tabGroups.update(group.id, { color: taskColor(task.id, task.title, meta.taskColors) });
+        } catch (e) {
+          if (!isGone(e)) throw e;
+        }
+      }
+      return { groupUpdated: !!group };
+    },
+
+    /**
+     * Reorder tasks (D-042): move a task folder before or after another one inside Groups. The
+     * order on the page is the folders' order, so this is the same as dragging in the bookmark manager.
+     */
+    async placeTask(taskId, anchorTaskId, { after = false } = {}) {
+      const node = await getNode(taskId, "task");
+      const anchor = await getNode(anchorTaskId, "anchor");
+      const { model } = await readModel();
+      const groupsId = model.folders.groups?.id;
+      if (node.url || anchor.url || node.parentId !== groupsId || anchor.parentId !== groupsId) throw new UserError("err.notTask");
+      if (anchor.id === node.id) return { moved: false };
+      const index = anchor.index + (after ? 1 : 0);
+      if (index === node.index || index === node.index + 1) return { moved: false };
+      await chrome.bookmarks.move(node.id, { parentId: groupsId, index });
+      return { moved: true };
+    },
+
     async renameTask(taskId, title) {
       const name = String(title ?? "").trim();
       if (!name) throw new UserError("err.taskNameEmpty");
@@ -527,8 +567,8 @@ export function createActions(chrome, { now = () => Date.now(), labels = () => D
       await chrome.bookmarks.update(node.id, { title: name });
       if (group) {
         try {
-          // Colour follows the title (colorFor), so the card and the tab group stay the same colour.
-          await chrome.tabGroups.update(group.id, { title: name, color: colorFor(name) });
+          // Same colour rule as the card (taskColor): a picked colour stays, otherwise it follows the title.
+          await chrome.tabGroups.update(group.id, { title: name, color: taskColor(node.id, name, meta.taskColors) });
         } catch (e) {
           if (!isGone(e)) throw e; // group closed meanwhile: the bookmark rename is what matters
         }

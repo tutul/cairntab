@@ -23,6 +23,9 @@
 - Settings are split into tabs: General, Appearance, Layout, Folders, About.
 - Clicking outside an open drawer closes it.
 - Header: open tabs before bookmarks; the settings button is a gear.
+- Reorder tasks by dragging a card by its header; the task folders move in the bookmarks too.
+- Pick a task's colour (Chrome's nine tab-group colours) from the dot in its header; the open tab
+  group is recoloured with it.
 - Delete a task (bin icon on the card, with a confirmation): the task folder and its pages move to
   Archive; nothing is deleted.
 - Inbox rows have a **Move to…** menu (Top or any task), so filing from a long Inbox needs no drag.

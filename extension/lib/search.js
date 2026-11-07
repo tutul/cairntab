@@ -75,16 +75,16 @@ export function displayUrl(url) {
  */
 export function searchEntries(model, openTabs = []) {
   const out = [];
-  const add = (it, kind, label, taskId = null) => {
+  const add = (it, kind, label, taskId = null, color = null) => {
     if (!it.url) return;
     out.push({
       key: `b${it.id}`, kind, id: it.id, title: it.title || it.url, url: it.url, label, taskId,
       openTabId: it.openTabId ?? null, lastOpened: it.lastOpened ?? null, openable: it.openable !== false,
-      iconPage: it.iconPage ?? it.url,
+      iconPage: it.iconPage ?? it.url, color,
     });
   };
   for (const it of model.top ?? []) add(it, "top", "Pin");
-  for (const t of model.tasks ?? []) for (const it of t.items) add(it, "task", t.title, t.loose ? null : t.id);
+  for (const t of model.tasks ?? []) for (const it of t.items) add(it, "task", t.title, t.loose ? null : t.id, t.color ?? null);
   for (const it of model.inbox ?? []) add(it, "inbox", "Inbox");
   const covered = new Set(out.map((e) => e.openTabId).filter((id) => id != null));
   for (const tab of openTabs) {

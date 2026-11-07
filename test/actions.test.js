@@ -689,3 +689,39 @@ test("deleting a task moves its folder into Archive; nothing is deleted (D-037)"
   await assert.rejects(actions.archiveTask(task), /err\.notTask/, "a task already in Archive is not a task");
   await assert.rejects(actions.archiveTask("404"), Gone);
 });
+
+test("placeTask reorders task folders inside Groups; other folders are refused (D-042)", async () => {
+  const { actions, id } = setup();
+  const order = async () => (await actions.load()).model.tasks.filter((t) => !t.loose).map((t) => t.title);
+  assert.deepEqual(await order(), ["Weekly 週報", "crypto 研究", "空任務"]);
+  assert.deepEqual(await actions.placeTask(id("空任務"), id("Weekly 週報")), { moved: true });
+  assert.deepEqual(await order(), ["空任務", "Weekly 週報", "crypto 研究"]);
+  await actions.placeTask(id("空任務"), id("crypto 研究"), { after: true });
+  assert.deepEqual(await order(), ["Weekly 週報", "crypto 研究", "空任務"]);
+  assert.deepEqual(await actions.placeTask(id("crypto 研究"), id("Weekly 週報"), { after: true }), { moved: false }, "already there");
+  await assert.rejects(actions.placeTask(id("子資料夾"), id("Weekly 週報")), /err\.notTask/);
+  await assert.rejects(actions.placeTask(id("Weekly 週報"), id("Groups")), /err\.notTask/);
+});
+
+test("a picked task colour wins over the title colour and recolours its open group (D-043)", async () => {
+  const { chrome, actions, id } = setup();
+  const task = id("Weekly 週報");
+  await actions.openItem(id("Dune dashboard"), { taskId: task, background: true });
+  const group = () => [...chrome._groups.values()][0];
+  assert.equal(group().color, colorFor("Weekly 週報"));
+  const pick = colorFor("Weekly 週報") === "purple" ? "green" : "purple";
+  assert.deepEqual(await actions.setTaskColor(task, pick), { groupUpdated: true });
+  assert.equal(group().color, pick);
+  let view = await actions.load();
+  const card = view.model.tasks.find((t) => t.id === task);
+  assert.equal(card.color, pick);
+  assert.equal(card.customColor, true);
+  assert.equal(view.openTabs.find((tab) => tab.place?.taskId === task).place.color, pick, "open-tabs tag uses it too");
+  await actions.renameTask(task, "週報 Q4");
+  assert.equal(group().color, pick, "renaming keeps a picked colour");
+  await actions.setTaskColor(task, null);
+  assert.equal(group().color, colorFor("週報 Q4"), "back to the title colour");
+  view = await actions.load();
+  assert.equal(view.model.tasks.find((t) => t.id === task).customColor, false);
+  await assert.rejects(actions.setTaskColor(task, "magenta"), /err\.badColor/);
+});

@@ -90,6 +90,15 @@ export function findTaskGroup({ mapEntry, groups, taskTitle, windowId = null }) 
 
 const COLORS = ["blue", "cyan", "green", "yellow", "orange", "red", "pink", "purple"];
 
+/** Every colour a Chrome tab group can have; a task's colour is one of these so card and group match. */
+export const GROUP_COLOR_NAMES = Object.freeze(["grey", "blue", "cyan", "green", "yellow", "orange", "red", "pink", "purple"]);
+
+/** A task's colour: the one the user picked (D-043), else the stable colour from its title. */
+export function taskColor(id, title, picked = {}) {
+  const c = picked?.[id];
+  return GROUP_COLOR_NAMES.includes(c) ? c : colorFor(title);
+}
+
 /** Stable colour per task title, so a task looks the same every time it is reopened. */
 export function colorFor(title) {
   let h = 0;
